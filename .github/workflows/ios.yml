@@ -74,7 +74,7 @@ jobs:
           }
           if [ -d App.xcworkspace ]; then PROJ=(-workspace App.xcworkspace); else PROJ=(-project App.xcodeproj); fi
           COMMON=("${PROJ[@]}" -scheme App -configuration Release -destination generic/platform=iOS
-            CURRENT_PROJECT_VERSION=$BUILD_NUMBER MARKETING_VERSION=1.0.$BUILD_NUMBER TARGETED_DEVICE_FAMILY=1)
+            CURRENT_PROJECT_VERSION=$BUILD_NUMBER MARKETING_VERSION=1.0.$BUILD_NUMBER "TARGETED_DEVICE_FAMILY=1,2")
 
           if [ -z "$ASC_KEY_P8_BASE64" ] || [ -z "$APPLE_TEAM_ID" ]; then
             echo "::warning::Apple secrets aren't set yet, so this is a test compile only. Nothing is signed or uploaded."
