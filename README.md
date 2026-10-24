@@ -3,7 +3,8 @@
 A feeds, sleep, nappies and health log for a newborn, shared by both parents.
 
 - **Android app.** Built automatically by GitHub into an `.apk` you install on your phone, plus an `.aab` file for Google Play. It shows a real phone notification when a feed is due, even when the app is closed.
-- **iPhone (web version).** The same app, published as a website that you add to the home screen from Safari.
+- **iPhone app.** Built by GitHub on a Mac and sent to Apple's TestFlight. This needs an Apple Developer membership.
+- **Web version.** The same app, published as a website that you add to the home screen from Safari. Use it on an iPhone if you don't want the Apple membership.
 - **One shared log.** Both versions use the same online database (Firebase). It works offline and catches up when you reconnect.
 
 Nothing personal is stored in this code. Your baby's name, date of birth and every log entry live only in your own Firebase database, and only family members who join with your invite code can read them.
@@ -86,6 +87,40 @@ To update later, install the newer `baby-chart.apk` the same way. Your log stays
 
 ---
 
+## The iPhone app (TestFlight)
+
+This needs a paid Apple Developer Program membership. Once Apple has approved it (you'll get a "Welcome to the Apple Developer Program" email), set it up once:
+
+1. **Register the app ID:**
+   - Go to https://developer.apple.com/account › **Certificates, IDs & Profiles** › **Identifiers** › **+** › **App IDs** › **App**.
+   - Description: `Baby Chart`. Bundle ID: **Explicit**, `app.babychart.family`. Leave the capabilities as they are.
+   - Click **Continue**, then **Register**.
+2. **Create the app record:**
+   - Go to https://appstoreconnect.apple.com › **Apps** › **+** › **New App**.
+   - Platform: **iOS**.
+   - Name: anything that isn't already taken on the App Store, such as `Harper's Baby Chart`.
+   - Language: English (Australia). Bundle ID: `app.babychart.family`. SKU: `babychart`. User access: Full access.
+3. **Create an API key** so GitHub can upload builds:
+   - Go to App Store Connect › **Users and Access** › **Integrations** › **App Store Connect API** › **Team Keys**.
+   - Generate a key named `GitHub` with **Admin** access.
+   - Download the `.p8` file. You can only download it once.
+   - Note the **Key ID** and the **Issuer ID**, both shown on that page.
+4. **Find your Team ID:** it's at https://developer.apple.com/account › **Membership details**.
+5. **Add 4 secrets in GitHub** (repo › Settings › Secrets and variables › Actions):
+   - `APPLE_TEAM_ID`: your Team ID
+   - `ASC_KEY_ID`: the Key ID
+   - `ASC_ISSUER_ID`: the Issuer ID
+   - `ASC_KEY_P8_BASE64`: the `.p8` file converted to base64. On Windows, open PowerShell in the folder with the file and run:
+     `[Convert]::ToBase64String([IO.File]::ReadAllBytes("AuthKey_XXXXXXXXXX.p8")) | Set-Clipboard`
+     Then paste it as the secret value.
+6. Run **Actions › Build iPhone app › Run workflow**. The build uploads to App Store Connect.
+7. **Add testers:**
+   - In App Store Connect › **Users and Access**, add your partner's Apple ID email as a user with the **Customer Support** role. Internal testers must be team members.
+   - Then, in your app › **TestFlight** › **Internal Testing**, create a group, add yourself and your partner, and add the latest build.
+   - Testers install Apple's **TestFlight** app from the App Store and accept the invite email.
+
+TestFlight builds expire after 90 days. Every change to the app uploads a new build, and testers get it automatically.
+
 ## Putting it on Google Play (optional)
 
 For just your family, installing the `.apk` (step 3) is enough. Google Play adds automatic updates.
@@ -127,7 +162,7 @@ src/config.js       your Firebase web settings
 firestore.rules     database security rules
 build.mjs           bundles src/ into www/ (esbuild)
 scripts/patch-android.mjs   version number, release signing, notification icon
-.github/workflows/  android.yml (APK + AAB), web.yml (GitHub Pages)
+.github/workflows/  android.yml (APK + AAB), ios.yml (TestFlight), web.yml (GitHub Pages)
 test/               a pretend backend for testing in a browser without Firebase
 ```
 
