@@ -38,5 +38,6 @@ export const backend = {
     };
     return s;
   },
+  async deleteAccount(pass, fid){ if(pass.length < 6){ const e = new Error("bad"); e.code = "auth/invalid-credential"; throw e; } const f = db.families[fid]; if(f){ f.members = f.members.filter(m => m !== current.uid); if(!f.members.length){ delete db.families[fid]; Object.keys(db.entries).forEach(k => { if(k === fid || k.startsWith(fid + "/")) delete db.entries[k]; }); } } delete db.users[current.uid]; save(); sessionStorage.removeItem("bc-test-user"); },
   async importEntries(fid, list, childId){ const id = (!childId || childId === "main") ? fid : fid + "/" + childId; if(!db.entries[id]) db.entries[id] = {}; for(const e of list){ const { id:k, ...rest } = e; db.entries[id][k] = rest; } save(); notify(); return list.length; }
 };

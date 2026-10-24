@@ -3,12 +3,12 @@ import { initializeApp } from "firebase/app";
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence,
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendPasswordResetEmail, signOut
+  sendPasswordResetEmail, signOut, EmailAuthProvider, reauthenticateWithCredential, deleteUser
 } from "firebase/auth";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, orderBy, limit, where,
-  onSnapshot, arrayUnion, writeBatch
+  onSnapshot, arrayUnion, arrayRemove, writeBatch, getDocs
 } from "firebase/firestore";
 import { firebaseConfig } from "./config.js";
 import { native } from "./native.js";
@@ -120,6 +120,44 @@ if(configured){
         }
       };
       return store;
+    },
+
+    // Permanently delete the signed-in account. If they're the only person in the family,
+    // every child's log, the invite code and the family are deleted too; otherwise they just leave it.
+    async deleteAccount(password, familyId){
+      const u = auth.currentUser;
+      if(!u) throw new Error("not signed in");
+      await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, password));
+      if(familyId){
+        const famRef = doc(db, "families", familyId);
+        const snap = await getDoc(famRef);
+        if(snap.exists()){
+          const f = snap.data();
+          const others = (f.members || []).filter(m => m !== u.uid);
+          if(others.length === 0){
+            const kids = (Array.isArray(f.children) && f.children.length) ? f.children.map(k => k.id) : [];
+            if(!kids.includes("main")) kids.push("main");
+            for(const cid of kids){
+              const col = cid === "main" ? collection(db, "families", familyId, "entries")
+                                         : collection(db, "families", familyId, "children", cid, "entries");
+              for(;;){
+                const page = await getDocs(query(col, limit(400)));
+                if(page.empty) break;
+                const batch = writeBatch(db);
+                page.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+              }
+            }
+            if(f.code) await deleteDoc(doc(db, "joinCodes", f.code)).catch(() => {});
+            await deleteDoc(famRef);
+          } else {
+            await updateDoc(famRef, { members: arrayRemove(u.uid) });
+          }
+        }
+      }
+      await deleteDoc(doc(db, "users", u.uid)).catch(() => {});
+      lsSet(fidKey(u.uid), null);
+      await deleteUser(u);
     },
 
     // Import entries exported from the old chart. Uses the old ids, so importing twice doesn't duplicate.

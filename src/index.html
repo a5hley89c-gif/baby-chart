@@ -285,6 +285,14 @@
       <div class="setrow"><span class="label">Earlier log</span><label class="btn ghost sm filebtn" for="importFile">Import file</label><input id="importFile" type="file" accept=".json,application/json" class="vh"><button class="btn ghost sm" id="exportBtn">Export</button></div>
       <p class="note" id="importNote" hidden></p>
       <div class="setrow"><span class="label">Signed in</span><span id="setEmail" class="email"></span><button class="btn ghost sm" id="signOutBtn">Sign out</button></div>
+      <details class="addkid dangerzone" id="delBox">
+        <summary>Delete my account</summary>
+        <p class="note">This permanently deletes your sign-in. If you're the only person in this chart, the chart and every child's log are deleted too. If your partner is also in it, the chart stays for them.</p>
+        <label class="field"><span class="label">Your password, to confirm</span><input id="delPass" type="password" autocomplete="current-password"></label>
+        <p class="err" id="delErr" hidden></p>
+        <button class="btn ghost danger" id="delGo">Delete my account</button>
+      </details>
+      <p class="note"><a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
     </div>
   </details>
 

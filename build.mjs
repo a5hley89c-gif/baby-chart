@@ -21,6 +21,7 @@ await build({
 await cp("src/icons", "www/icons", { recursive: true });
 await cp("src/styles.css", "www/styles.css");
 await cp("src/manifest.webmanifest", "www/manifest.webmanifest");
+await cp("src/privacy.html", "www/privacy.html");
 
 const sw = (await readFile("src/sw.js", "utf8")).replaceAll("__BUILD__", BUILD);
 await writeFile("www/sw.js", sw);

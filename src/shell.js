@@ -267,6 +267,32 @@ export function runShell(backend, native){
   });
   $("#signOutBtn").addEventListener("click", () => backend.signOut());
 
+  // delete account (two taps, plus their password)
+  let delArmed = false, delTimer = null;
+  $("#delGo").addEventListener("click", async () => {
+    const pass = $("#delPass").value;
+    errOut("#delErr", "");
+    if(!pass){ errOut("#delErr", "Enter your password to confirm."); return; }
+    if(!delArmed){
+      delArmed = true; $("#delGo").textContent = "Tap again to delete permanently";
+      clearTimeout(delTimer); delTimer = setTimeout(() => { delArmed = false; $("#delGo").textContent = "Delete my account"; }, 5000);
+      return;
+    }
+    delArmed = false; clearTimeout(delTimer);
+    $("#delGo").disabled = true; $("#delGo").textContent = "Deleting…";
+    try{
+      await backend.deleteAccount(pass, fid);
+      try{ localStorage.clear(); }catch(e){}
+      location.reload();
+    }catch(e){
+      const c = String((e && e.code) || "");
+      errOut("#delErr", c.includes("wrong-password") || c.includes("invalid-credential") ? "That password is wrong."
+        : c.includes("too-many-requests") ? "Too many tries. Wait a few minutes and try again."
+        : "Couldn't delete the account. Check your internet connection and try again.");
+      $("#delGo").disabled = false; $("#delGo").textContent = "Delete my account";
+    }
+  });
+
   // phone notifications (Android app only)
   async function refreshNotif(){
     if(!native.isNative){ $("#notifRow").hidden = true; return; }

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Baby Chart Privacy Policy</title>
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<style>
+:root{--bg:#f5f4f9;--surface:#fff;--ink:#1f1d2b;--muted:#666379;--accent:#3f3a8c;--line:#e2e0ea}
+@media (prefers-color-scheme: dark){:root{--bg:#12111a;--surface:#1c1a26;--ink:#ecebf3;--muted:#a3a0b6;--accent:#aaa5ff;--line:#2f2c3d;color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif}
+main{max-width:680px;margin:0 auto;padding-block:32px 56px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+h1{font-size:1.8rem;line-height:1.2;margin:0 0 4px}
+h2{font-size:1.15rem;margin:28px 0 6px}
+p,li{max-width:65ch}
+.sub{color:var(--muted);margin:0 0 24px}
+a{color:var(--accent);font-weight:700}
+ul{padding-left:20px}
+.brand{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.brand img{width:44px;height:44px;border-radius:10px}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><img src="icons/icon-192.png" alt=""><strong>Baby Chart</strong></div>
+  <h1>Privacy policy</h1>
+  <p class="sub">Last updated 24 October 2026</p>
+
+  <p>Baby Chart is a small app for parents to log their baby's feeds, sleep, nappies, temperatures and medication, and to share that log with their partner. It's made by a parent for family and friends. It isn't a commercial product.</p>
+
+  <h2>What the app stores</h2>
+  <ul>
+    <li><strong>Your account:</strong> your email address and password. Passwords are stored by Google Firebase in scrambled (hashed) form and can't be read by anyone.</li>
+    <li><strong>Your children's details:</strong> the name and date of birth you enter for each child.</li>
+    <li><strong>Your log:</strong> the feeds, sleeps, nappy changes, temperatures, medication and notes you record.</li>
+    <li><strong>On your device:</strong> app settings such as alert preferences, and a sign-in token so you stay signed in.</li>
+  </ul>
+
+  <h2>Where it's kept and who can see it</h2>
+  <p>Everything is stored in Google Firebase (Authentication and Cloud Firestore), a cloud service run by Google. A family's chart can only be read or changed by the accounts that belong to that family: the person who started it, and anyone they share their invite code with.</p>
+  <p>As the operator of the app's Firebase project, the developer can technically access the stored data through Google's console. It's never looked at except to fix a problem you've asked for help with.</p>
+
+  <h2>What the app doesn't do</h2>
+  <ul>
+    <li>No advertising, and no selling or sharing of your data.</li>
+    <li>No analytics or tracking.</li>
+    <li>No access to your contacts, photos, location, camera or microphone.</li>
+  </ul>
+
+  <h2>Notifications</h2>
+  <p>The phone apps can show a reminder when a feed is due. These reminders are scheduled on your own device and aren't sent through any server.</p>
+
+  <h2>Deleting your data</h2>
+  <p>Open <strong>Settings and family › Delete my account</strong> in the app. This deletes your sign-in. If you're the only member of your chart, it also deletes the chart and every child's log. You can also email the address below to ask for your data to be deleted.</p>
+
+  <h2>Health information</h2>
+  <p>The tips in the app are general information for healthy babies and aren't medical advice. Always follow your midwife, child health nurse or doctor.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or deletion requests: <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a></p>
+</main>
+</body>
+</html>
