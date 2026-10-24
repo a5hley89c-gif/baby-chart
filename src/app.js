@@ -162,7 +162,11 @@ function birthMs(){
 }
 function paintName(){
   document.querySelectorAll(".bn").forEach(el=>{ el.textContent = NM(); });
-  document.title = NM() + "'s Chart";
+  // "Harper's Baby Chart", using the name entered under Settings and family
+  const named = (FAM.name || "").trim();
+  const title = named ? named + (/s$/i.test(named) ? "' Baby Chart" : "'s Baby Chart") : "Baby Chart";
+  const h = document.getElementById("chartTitle"); if(h) h.textContent = title;
+  document.title = title;
 }
 function ageInfo(){
   const BIRTH = birthMs();
