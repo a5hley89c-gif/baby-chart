@@ -24,7 +24,9 @@ export const backend = {
   async joinFamily(code){ const id = db.codes[code]; if(!id) return null; db.families[id].members.push(current.uid); db.users[current.uid] = { familyId:id }; save(); return id; },
   watchFamily(id, cb){ const f = () => cb(db.families[id]); listeners.add(f); f(); return () => listeners.delete(f); },
   async updateFamily(id, patch){ Object.assign(db.families[id], patch); save(); notify(); },
-  makeStore(id){
+  makeStore(fid, childId){
+    const id = (!childId || childId === "main") ? fid : fid + "/" + childId;
+    if(!db.entries[id]) db.entries[id] = {};
     const all = () => Object.entries(db.entries[id] || {}).map(([k, v]) => Object.assign({ id:k }, v)).sort((a, b) => b.t - a.t);
     const s = {
       onError(){},
@@ -36,5 +38,5 @@ export const backend = {
     };
     return s;
   },
-  async importEntries(id, list){ for(const e of list){ const { id:k, ...rest } = e; db.entries[id][k] = rest; } save(); notify(); return list.length; }
+  async importEntries(fid, list, childId){ const id = (!childId || childId === "main") ? fid : fid + "/" + childId; if(!db.entries[id]) db.entries[id] = {}; for(const e of list){ const { id:k, ...rest } = e; db.entries[id][k] = rest; } save(); notify(); return list.length; }
 };

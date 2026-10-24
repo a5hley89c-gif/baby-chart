@@ -81,7 +81,8 @@ To update later, install the newer `baby-chart.apk` the same way. Your log stays
    - Choose **Create account** and sign up with an email and password.
    - Choose **Start a new chart** and enter the baby's name and date of birth.
 2. **Bring in the earlier log:** open **Settings and family › Import file** and choose the exported `.json` log file.
-3. **Second phone:**
+3. **Twins or siblings?** Open **Settings and family › + Add another child**. Each child gets their own log, and you switch between them with the names at the top of the chart.
+4. **Second phone:**
    - Choose **Create account**, then **Join with a code**.
    - Enter the invite code shown under **Settings and family** on the first phone.
 

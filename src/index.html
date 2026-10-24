@@ -74,6 +74,7 @@
   <header>
     <h1 id="chartTitle">Baby Chart</h1>
     <p class="sub" id="today"></p>
+    <nav class="kids" id="kidBar" aria-label="Choose a child" hidden></nav>
   </header>
 
   <section id="live" aria-live="polite"></section>
@@ -259,11 +260,25 @@
   <details class="settings" id="settingsBox">
     <summary>Settings and family</summary>
     <div class="setgrid">
+      <h3 class="setsub">Children</h3>
+      <div class="kidlist" id="kidList"></div>
       <div class="fields">
-        <label class="field"><span class="label">Baby's name</span><input id="setName" type="text" maxlength="40" autocomplete="off"></label>
+        <label class="field"><span class="label">Name</span><input id="setName" type="text" maxlength="40" autocomplete="off"></label>
         <label class="field"><span class="label">Date of birth</span><input id="setBirth" type="date"></label>
       </div>
-      <button class="btn ghost" id="setSave">Save baby details</button>
+      <div class="setbtns">
+        <button class="btn ghost" id="setSave">Save changes</button>
+        <button class="btn ghost danger" id="kidRemove" hidden>Remove <span class="bn">Baby</span></button>
+      </div>
+      <details class="addkid" id="addKidBox">
+        <summary>+ Add another child</summary>
+        <div class="fields">
+          <label class="field"><span class="label">Name</span><input id="newKidName" type="text" maxlength="40" autocomplete="off"></label>
+          <label class="field"><span class="label">Date of birth</span><input id="newKidBirth" type="date"></label>
+        </div>
+        <button class="btn" id="newKidAdd">Add child</button>
+        <p class="note">For twins or triplets, add each baby. Switch between them with the names at the top of the chart.</p>
+      </details>
       <div class="setrow"><span class="label">Invite code</span><span class="code num" id="setCode">—</span><button class="btn ghost sm" id="setCopy">Copy</button></div>
       <p class="note">To share the chart, your partner signs up in the app or the web version, chooses <b>Join with a code</b> and enters this code.</p>
       <div class="setrow" id="notifRow" hidden><span class="label">Phone alerts</span><span id="notifState"></span><button class="btn ghost sm" id="notifBtn">Turn on</button></div>

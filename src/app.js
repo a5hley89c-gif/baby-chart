@@ -18,7 +18,8 @@ const NAPPYCOL = {wee:"var(--wee)", poo:"var(--poo)", both:"var(--both)", dry:"v
 
 let entries = [];           // newest first
 let mode = "db";
-const store = ctx.store;
+let store = ctx.store;                 // the current child's log (changes when switching child)
+let KEY_SFX = ctx.childKey ? "-" + ctx.childKey : "";   // per-child alert state on this device
 function sortEntries(){ entries.sort((a,b)=>b.t-a.t); }
 function fail(e){
   const code = String((e && e.code) || "");
@@ -632,8 +633,8 @@ function checkWake(){
   const due = feedDue(), box = $("#wakeAlert"), f = lastFeedStart();
   $("#sDue").textContent = due ? (Date.now() < due ? "Feed due by " + fmtTime(due) : "Feed was due at " + fmtTime(due)) : "";
   const key = f ? f.id : null;
-  const dismissed = key && lsGet("harper-rem-dismiss", "") === key;
-  const snoozeUntil = Number(lsGet("harper-rem-snooze", "0"));
+  const dismissed = key && lsGet("harper-rem-dismiss" + KEY_SFX, "") === key;
+  const snoozeUntil = Number(lsGet("harper-rem-snooze" + KEY_SFX, "0"));
   syncNativeAlert(due, f, dismissed, snoozeUntil);
   if(!due || Date.now() < due || dismissed || Date.now() < snoozeUntil){ box.hidden = true; alertFor = null; return; }
   if(alertFor !== key){ alertFor = key; chimes = 0; lastChime = 0; }
@@ -644,9 +645,9 @@ function checkWake(){
   box.hidden = false;
   if(chimes < 10 && Date.now() - lastChime > 60000){ chime(); lastChime = Date.now(); chimes++; }
 }
-$("#waFeed").addEventListener("click", ()=>{ showTab("feed"); $("#pane-feed").scrollIntoView({behavior:"smooth", block:"center"}); $("#wakeAlert").hidden = true; const f = lastFeedStart(); if(f) lsSet("harper-rem-dismiss", f.id); });
-$("#waSnooze").addEventListener("click", ()=>{ lsSet("harper-rem-snooze", String(Date.now() + 15*MIN)); checkWake(); toast("Reminder snoozed for 15 minutes"); });
-$("#waDismiss").addEventListener("click", ()=>{ const f = lastFeedStart(); if(f) lsSet("harper-rem-dismiss", f.id); checkWake(); });
+$("#waFeed").addEventListener("click", ()=>{ showTab("feed"); $("#pane-feed").scrollIntoView({behavior:"smooth", block:"center"}); $("#wakeAlert").hidden = true; const f = lastFeedStart(); if(f) lsSet("harper-rem-dismiss" + KEY_SFX, f.id); });
+$("#waSnooze").addEventListener("click", ()=>{ lsSet("harper-rem-snooze" + KEY_SFX, String(Date.now() + 15*MIN)); checkWake(); toast("Reminder snoozed for 15 minutes"); });
+$("#waDismiss").addEventListener("click", ()=>{ const f = lastFeedStart(); if(f) lsSet("harper-rem-dismiss" + KEY_SFX, f.id); checkWake(); });
 $("#remOn").addEventListener("change", e=>{ remOn = e.target.checked; lsSet("harper-rem-on", remOn ? "1" : "0"); checkWake(); renderLive(); });
 
 let wakeLock = null;
@@ -703,6 +704,21 @@ if(lsGet("harper-keep-awake", "0") === "1"){ $("#keepAwake").checked = true; set
 
 return {
   setFamily(f){ FAM = Object.assign({}, FAM, f || {}); paintName(); render(); },
+  // Show a different child's log: new store, name and birth date
+  switchChild(next){
+    try{ unsubRecent && unsubRecent(); monthUnsub && monthUnsub(); }catch(e){}
+    if(editing) closeEdit();
+    store = next.store; store.onError = fail;
+    KEY_SFX = next.key ? "-" + next.key : "";
+    FAM = Object.assign({}, FAM, next.family || {});
+    entries = []; monthEntries = [];
+    armed = null; sideTouched = false; alertFor = null;
+    calSel = startOfDay(Date.now());
+    calMonth = (()=>{ const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d.getTime(); })();
+    ["#feedNote","#sleepNote","#nappyNote","#feedAt","#feedMins","#feedMl","#sleepFrom","#sleepTo","#nappyAt"].forEach(sel=>{ const el = $(sel); if(el) el.value = ""; });
+    paintName(); render(); syncDefaultSide();
+    boot();
+  },
   allEntries: () => entries.slice(),
   closeSheet(){ if(editing){ closeEdit(); return true; } return false; },
   stop(){ try{ unsubRecent && unsubRecent(); monthUnsub && monthUnsub(); }catch(e){} }

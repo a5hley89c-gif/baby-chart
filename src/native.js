@@ -5,9 +5,9 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { App } from "@capacitor/app";
 
 const isNative = Capacitor.isNativePlatform();
-const ALERT_ID = 3001;
+const ALERT_ID = 3001;            // one notification slot per child: 3001, 3002, ...
 const CHANNEL = "feed-alerts";
-let lastKey = undefined;
+const lastKey = {};
 let channelReady = null;
 
 function ensureChannel(){
@@ -38,20 +38,21 @@ export const native = {
     try{ await ensureChannel(); return (await LocalNotifications.requestPermissions()).display; }catch(e){ return "denied"; }
   },
 
-  // Keep exactly one wake-to-feed notification scheduled, at `at` (ms), or none when at is null.
-  async syncAlert(at, title, body){
+  // Keep one wake-to-feed notification scheduled per child slot, at `at` (ms), or none when at is null.
+  async syncAlert(at, title, body, slot = 0){
     if(!isNative) return;
+    const id = ALERT_ID + slot;
     const key = at ? at + "|" + title + "|" + body : null;
-    if(key === lastKey) return;
-    lastKey = key;
+    if(key === lastKey[slot]) return;
+    lastKey[slot] = key;
     try{
       await ensureChannel();
-      await LocalNotifications.cancel({ notifications: [{ id: ALERT_ID }] });
+      await LocalNotifications.cancel({ notifications: [{ id }] });
       if(at && at > Date.now() + 5000){
         const perm = (await LocalNotifications.checkPermissions()).display;
         if(perm !== "granted") return;
         await LocalNotifications.schedule({ notifications: [{
-          id: ALERT_ID, title, body,
+          id, title, body,
           channelId: CHANNEL,
           schedule: { at: new Date(at), allowWhileIdle: true }
         }] });

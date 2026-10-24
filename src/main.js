@@ -94,8 +94,12 @@ if(configured){
 
     updateFamily: (id, patch) => updateDoc(doc(db, "families", id), clean(patch)),
 
-    makeStore(id){
-      const col = collection(db, "families", id, "entries");
+    // Each child's log: the first child ("main") at families/{id}/entries, others at
+    // families/{id}/children/{childId}/entries
+    makeStore(id, childId){
+      const col = (!childId || childId === "main")
+        ? collection(db, "families", id, "entries")
+        : collection(db, "families", id, "children", childId, "entries");
       const list = snap => snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
       const store = {
         onError: e => { try{ console.error(e); }catch(_){} },
@@ -119,8 +123,10 @@ if(configured){
     },
 
     // Import entries exported from the old chart. Uses the old ids, so importing twice doesn't duplicate.
-    async importEntries(id, entries){
-      const col = collection(db, "families", id, "entries");
+    async importEntries(id, entries, childId){
+      const col = (!childId || childId === "main")
+        ? collection(db, "families", id, "entries")
+        : collection(db, "families", id, "children", childId, "entries");
       let n = 0;
       for(let i = 0; i < entries.length; i += 400){
         const batch = writeBatch(db);

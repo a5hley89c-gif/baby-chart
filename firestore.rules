@@ -54,6 +54,11 @@ service cloud.firestore {
       match /entries/{entryId} {
         allow read, write: if isMember(fid);
       }
+
+      // logs for second and later children (twins, siblings)
+      match /children/{childId}/entries/{entryId} {
+        allow read, write: if isMember(fid);
+      }
     }
   }
 }

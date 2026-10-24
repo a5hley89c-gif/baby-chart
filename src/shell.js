@@ -87,7 +87,88 @@ export function runShell(backend, native){
   });
   $("#fSignOut").addEventListener("click", () => backend.signOut());
 
-  // ---------- the chart ----------
+  // ---------- the chart and children ----------
+  // A family has one or more children. The first child ("main") is the original name and
+  // birth date on the family record, and keeps its log at families/{id}/entries.
+  const childrenOf = f => (Array.isArray(f.children) && f.children.length)
+    ? f.children : [{ id: "main", name: f.name || "", birth: f.birth || "" }];
+  const ALERT_GAP = 3 * 3600000;
+  const kidKey = id => id === "main" ? "" : id;     // the first child keeps its existing alert settings
+  const lsGet = (k, d) => { try{ const v = localStorage.getItem(k); return v === null ? d : v; }catch(e){ return d; } };
+  const lsSet = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
+  const escH = v => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const fmtBirth = b => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(b || ""); return m ? "born " + new Date(+m[1], +m[2]-1, +m[3]).toLocaleDateString("en-AU", { day:"numeric", month:"short", year:"numeric" }) : ""; };
+  const newId = () => { const a = new Uint32Array(2); crypto.getRandomValues(a); return "c" + a[0].toString(36) + a[1].toString(36); };
+  // The chart itself doesn't schedule phone alerts; this shell does, for every child.
+  const chartNative = Object.assign({}, native, { syncAlert: null });
+  let kids = [], curKid = null;
+  const kidWatch = {};                               // child id -> { feed, unsub }
+
+  function chooseKid(id, initial){
+    const k = kids.find(x => x.id === id) || kids[0];
+    curKid = k.id; lsSet("bc-child-" + fid, k.id);
+    const fam = { name: k.name, birth: k.birth };
+    if(initial || !chart){
+      chart = startChart({ store: backend.makeStore(fid, k.id), native: chartNative, family: fam, childKey: kidKey(k.id) });
+    } else {
+      chart.switchChild({ store: backend.makeStore(fid, k.id), family: fam, key: kidKey(k.id) });
+      window.scrollTo({ top: 0 });
+    }
+    paintKids(); paintSettings();
+  }
+
+  // Keep an eye on each child's latest feed, for their phone alerts and the "feed due" dots.
+  function watchKids(){
+    const ids = new Set(kids.map(k => k.id));
+    Object.keys(kidWatch).forEach(id => { if(!ids.has(id)){ try{ kidWatch[id].unsub(); }catch(e){} delete kidWatch[id]; } });
+    kids.forEach(k => {
+      if(kidWatch[k.id]) return;
+      const w = kidWatch[k.id] = { feed: null, unsub: null };
+      w.unsub = backend.makeStore(fid, k.id).subscribeRecent(40, list => {
+        w.feed = list.filter(e => e.kind === "feed").sort((a, b) => b.t - a.t)[0] || null;
+        syncAlerts(); paintKids();
+      }, () => {});
+    });
+  }
+  function syncAlerts(){
+    if(!native.syncAlert) return;
+    const on = lsGet("harper-rem-on", "1") === "1";
+    kids.forEach((k, i) => {
+      const f = (kidWatch[k.id] || {}).feed;
+      const name = (k.name || "Baby").trim() || "Baby";
+      let at = null;
+      if(on && f && !f.open){
+        const sfx = kidKey(k.id) ? "-" + kidKey(k.id) : "";
+        const dismissed = lsGet("harper-rem-dismiss" + sfx, "") === f.id;
+        const snooze = Number(lsGet("harper-rem-snooze" + sfx, "0"));
+        if(!dismissed) at = Math.max(f.t + ALERT_GAP, snooze || 0);
+        if(at && at <= Date.now() + 5000) at = null;
+      }
+      const when = f ? new Date(f.t).toLocaleTimeString("en-AU", { hour:"numeric", minute:"2-digit" }).replace(" ", "") : "";
+      native.syncAlert(at, "Time to wake " + name + " for a feed",
+        f ? "Last feed started at " + when + ". Check the chart if someone else has fed " + name + " since." : "", i);
+    });
+    for(let i = kids.length; i < 8; i++) native.syncAlert(null, "", "", i);
+  }
+  setInterval(() => { paintKids(); syncAlerts(); }, 20000);
+
+  function paintKids(){
+    const bar = $("#kidBar");
+    if(kids.length < 2){ bar.hidden = true; bar.innerHTML = ""; $("#kidList").innerHTML = ""; $("#kidRemove").hidden = true; return; }
+    bar.hidden = false;
+    bar.innerHTML = kids.map(k => {
+      const f = (kidWatch[k.id] || {}).feed;
+      const due = f && !f.open && Date.now() >= f.t + ALERT_GAP;
+      return `<button class="kid" data-kid="${escH(k.id)}" aria-pressed="${k.id === curKid}">${due ? '<span class="due" title="Feed due"></span>' : ""}${escH(k.name || "Baby")}</button>`;
+    }).join("");
+    $("#kidList").innerHTML = kids.map(k =>
+      `<button class="kidrow" data-kid="${escH(k.id)}" aria-current="${k.id === curKid}"><b>${escH(k.name || "Baby")}</b><span>${escH(fmtBirth(k.birth))}</span></button>`).join("");
+    $("#kidRemove").hidden = false;
+  }
+  const pickKid = e => { const b = e.target.closest("[data-kid]"); if(b && b.dataset.kid !== curKid) chooseKid(b.dataset.kid); };
+  $("#kidBar").addEventListener("click", pickKid);
+  $("#kidList").addEventListener("click", pickKid);
+
   async function openFamily(id){
     fid = id;
     if(famUnsub) famUnsub();
@@ -95,11 +176,13 @@ export function runShell(backend, native){
     famUnsub = backend.watchFamily(id, f => {
       if(!f) return;
       family = f;
-      paintSettings();
+      kids = childrenOf(f);
+      watchKids();
       if(first){
         first = false;
         $("#gate").hidden = true; $("#chartWrap").hidden = false;
-        chart = startChart({ store: backend.makeStore(id), native, family: { name: f.name, birth: f.birth } });
+        const saved = lsGet("bc-child-" + id, "");
+        chooseKid(kids.some(k => k.id === saved) ? saved : kids[0].id, true);
         $("#mode").textContent = native.isNative
           ? "Synced between your phones. Works offline and catches up when you reconnect."
           : "Synced between your phones. Add this page to your home screen to use it like an app.";
@@ -108,25 +191,74 @@ export function runShell(backend, native){
           : "On iPhone, alerts show and chime while this app is open on screen.";
         refreshNotif();
       } else if(chart){
-        chart.setFamily({ name: f.name, birth: f.birth });
+        const k = kids.find(x => x.id === curKid);
+        if(!k) chooseKid(kids[0].id);                // this child was removed on another phone
+        else chart.setFamily({ name: k.name, birth: k.birth });
       }
+      paintKids(); paintSettings();
+      syncAlerts();
     }, () => {});
   }
 
   function paintSettings(){
     if(!family) return;
-    if(document.activeElement !== $("#setName")) $("#setName").value = family.name || "";
-    if(document.activeElement !== $("#setBirth")) $("#setBirth").value = family.birth || "";
+    const k = kids.find(x => x.id === curKid) || kids[0] || {};
+    if(document.activeElement !== $("#setName")) $("#setName").value = k.name || "";
+    if(document.activeElement !== $("#setBirth")) $("#setBirth").value = k.birth || "";
     const c = family.code || "";
     $("#setCode").textContent = c ? c.slice(0,4) + "-" + c.slice(4) : "—";
     $("#setEmail").textContent = user ? (user.email || "") : "";
   }
-  $("#setBirth").max = todayISO();
+  // Save the list of children. The first child's details also stay on the family record.
+  function saveKids(list){
+    const patch = { children: list.map(k => ({ id: k.id, name: k.name, birth: k.birth })) };
+    const main = list.find(k => k.id === "main");
+    if(main){ patch.name = main.name; patch.birth = main.birth; }
+    return backend.updateFamily(fid, patch);
+  }
+  $("#setBirth").max = todayISO(); $("#newKidBirth").max = todayISO();
   $("#setSave").addEventListener("click", async () => {
     const name = $("#setName").value.trim(), birth = $("#setBirth").value;
     if(!name || !validBirth(birth)){ toastLite("Enter a name and a date of birth."); return; }
-    try{ await backend.updateFamily(fid, { name, birth }); toastLite("Baby details saved"); }
-    catch(e){ toastLite("Couldn't save. Check your internet connection."); }
+    const list = kids.map(k => k.id === curKid ? Object.assign({}, k, { name, birth }) : k);
+    const legacy = !(Array.isArray(family.children) && family.children.length);
+    try{
+      if(legacy && list.length === 1 && list[0].id === "main") await backend.updateFamily(fid, { name, birth });
+      else await saveKids(list);
+      toastLite("Saved");
+    }catch(e){ toastLite("Couldn't save. Check your internet connection."); }
+  });
+  $("#newKidAdd").addEventListener("click", () => {
+    const name = $("#newKidName").value.trim(), birth = $("#newKidBirth").value;
+    if(!name){ toastLite("Enter the child's name."); return; }
+    if(!validBirth(birth)){ toastLite("Enter the child's date of birth."); return; }
+    if(kids.length >= 8){ toastLite("A chart can hold up to 8 children."); return; }
+    const k = { id: newId(), name, birth };
+    const list = kids.concat([k]);
+    saveKids(list).catch(() => toastLite("Couldn't save. Check your internet connection."));
+    kids = list; watchKids();
+    $("#newKidName").value = ""; $("#newKidBirth").value = ""; $("#addKidBox").open = false;
+    chooseKid(k.id);
+    toastLite(name + " added. Tap a name at the top to switch.");
+  });
+  let removeArmed = null, removeTimer = null;
+  $("#kidRemove").addEventListener("click", () => {
+    if(kids.length < 2) return;
+    const k = kids.find(x => x.id === curKid); if(!k) return;
+    if(removeArmed !== k.id){
+      removeArmed = k.id;
+      $("#kidRemove").textContent = "Tap again to remove " + (k.name || "this child");
+      clearTimeout(removeTimer);
+      removeTimer = setTimeout(() => { removeArmed = null; const c = kids.find(x => x.id === curKid); $("#kidRemove").innerHTML = 'Remove <span class="bn">' + escH((c && c.name) || "Baby") + "</span>"; }, 4000);
+      return;
+    }
+    removeArmed = null; clearTimeout(removeTimer);
+    const list = kids.filter(x => x.id !== k.id);
+    saveKids(list).catch(() => toastLite("Couldn't save. Check your internet connection."));
+    kids = list; watchKids();
+    chooseKid(list[0].id);
+    $("#kidRemove").innerHTML = 'Remove <span class="bn">' + escH(list[0].name || "Baby") + "</span>";
+    toastLite((k.name || "Child") + " removed from the chart. Their log isn't deleted.");
   });
   $("#setCopy").addEventListener("click", async () => {
     const t = $("#setCode").textContent;
@@ -161,7 +293,7 @@ export function runShell(backend, native){
       const clean = list.filter(x => x && typeof x.id === "string" && typeof x.t === "number" && typeof x.kind === "string");
       if(!clean.length) throw new Error("empty");
       note.hidden = false; note.textContent = `Importing ${clean.length} entries…`;
-      const n = await backend.importEntries(fid, clean);
+      const n = await backend.importEntries(fid, clean, curKid);
       note.textContent = `Imported ${n} entries. Importing the same file again won't create duplicates.`;
     }catch(err){
       note.hidden = false;

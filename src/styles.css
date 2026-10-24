@@ -227,3 +227,25 @@ details ul{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;
   .wrap{max-width:680px}
   .tiles{grid-template-columns:repeat(4,1fr)}
 }
+
+/* child switcher (shown when a family has two or more children) */
+.kids{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 2px;margin-top:12px;scrollbar-width:none}
+.kids::-webkit-scrollbar{display:none}
+.kid{flex:none;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 16px;min-height:44px;font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:8px}
+.kid[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.kid .due{width:9px;height:9px;border-radius:50%;background:var(--danger);flex:none}
+.kid[aria-pressed="true"] .due{background:var(--on-accent)}
+/* children in settings */
+.setsub{margin:6px 0 0;font-family:var(--display);font-size:1rem}
+.kidlist{display:flex;flex-direction:column;gap:6px}
+.kidrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--sunk);border:2px solid transparent;font-size:.92rem;text-align:left;width:100%;color:var(--ink)}
+.kidrow[aria-current="true"]{border-color:var(--accent)}
+.kidrow b{font-weight:700}
+.kidrow span{color:var(--muted)}
+.setbtns{display:flex;gap:8px;flex-wrap:wrap}
+.setbtns .btn{flex:1 1 160px}
+.btn.danger{color:var(--danger)}
+.addkid{background:var(--sunk);border-radius:12px;padding:12px 14px}
+.addkid summary{font-weight:700;color:var(--accent);cursor:pointer}
+.addkid .fields{margin:12px 0}
+.addkid .note{margin:10px 0 0}
