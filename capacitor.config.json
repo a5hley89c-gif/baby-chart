@@ -1,0 +1,14 @@
+{
+  "appId": "app.babychart.family",
+  "appName": "Baby Chart",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#f5f4f9"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#3f3a8c"
+    }
+  }
+}

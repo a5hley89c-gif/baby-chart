@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Baby Chart</title>
+<meta name="description" content="Log feeds, sleep, nappies, temperatures and medication, shared by both parents.">
+<meta name="theme-color" content="#f5f4f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12111a" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Baby Chart">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="gate" id="gate">
+  <div class="gate-in">
+    <div class="brand"><img src="icons/icon-192.png" alt="" width="56" height="56"><div><h1>Baby Chart</h1><p class="sub">Feeds, sleep, nappies and health, shared by both parents.</p></div></div>
+
+    <section id="gLoading"><p class="note">Loading…</p></section>
+
+    <section id="gConfig" class="panel" hidden>
+      <h2>Almost there</h2>
+      <p class="err">This copy of the app isn't connected to its database yet. Put your Firebase web settings in <b>src/config.js</b> and rebuild.</p>
+    </section>
+
+    <section id="gAuth" class="panel" hidden>
+      <div class="tabs two" role="tablist">
+        <button role="tab" id="aTabIn" aria-selected="true">Sign in</button>
+        <button role="tab" id="aTabNew" aria-selected="false">Create account</button>
+      </div>
+      <label class="field"><span class="label">Email</span><input id="aEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false"></label>
+      <label class="field"><span class="label">Password</span><input id="aPass" type="password" autocomplete="current-password"></label>
+      <p class="note" id="aHint" hidden>Use at least 6 characters.</p>
+      <p class="err" id="aErr" hidden></p>
+      <button class="btn" id="aGo">Sign in</button>
+      <button class="linkbtn" id="aForgot">Forgot your password?</button>
+    </section>
+
+    <section id="gFamily" class="panel" hidden>
+      <h2>Set up the chart</h2>
+      <p class="note">Start a new chart for your baby, or join the chart your partner already set up.</p>
+      <div class="tabs two" role="tablist">
+        <button role="tab" id="fTabNew" aria-selected="true">Start a new chart</button>
+        <button role="tab" id="fTabJoin" aria-selected="false">Join with a code</button>
+      </div>
+      <div class="pane" id="fNewPane">
+        <div class="fields">
+          <label class="field"><span class="label">Baby's name</span><input id="fName" type="text" maxlength="40" autocomplete="off"></label>
+          <label class="field"><span class="label">Date of birth</span><input id="fBirth" type="date"></label>
+        </div>
+        <button class="btn" id="fCreate">Start the chart</button>
+      </div>
+      <div class="pane" id="fJoinPane" hidden>
+        <label class="field"><span class="label">Invite code</span><input id="fCode" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. KQ7M-3XPA" class="num"></label>
+        <p class="note">Find the code in your partner's app under <b>Settings and family</b>.</p>
+        <button class="btn" id="fJoin">Join the chart</button>
+      </div>
+      <p class="err" id="fErr" hidden></p>
+      <button class="linkbtn" id="fSignOut">Sign out</button>
+    </section>
+  </div>
+</div>
+
+
+
+<div class="wrap" id="chartWrap" hidden>
+  <header>
+    <h1><span class="bn">Baby</span>'s Chart</h1>
+    <p class="sub" id="today"></p>
+  </header>
+
+  <section id="live" aria-live="polite"></section>
+
+  <section class="wakealert" id="wakeAlert" hidden role="alert">
+    <div class="wa-txt"><div class="wa-h" id="waHead">Time for a feed</div><div class="wa-s" id="waSub"></div></div>
+    <div class="wa-acts">
+      <button class="btn" id="waFeed">Start feed</button>
+      <button class="btn ghost" id="waSnooze">Snooze 15 min</button>
+      <button class="btn ghost" id="waDismiss">Dismiss</button>
+    </div>
+  </section>
+
+  <section class="status" aria-label="Right now">
+    <div class="stat"><span class="label">Last feed</span><span class="v" id="sFeed">—</span><span class="d" id="sFeedD">None logged yet</span><span class="hint" id="sNext"></span><span class="d" id="sDue"></span></div>
+    <div class="stat"><span class="label">Last nappy</span><span class="v" id="sNappy">—</span><span class="d" id="sNappyD">None logged yet</span></div>
+    <div class="stat"><span class="label">Sleep</span><span class="v" id="sSleep">—</span><span class="d" id="sSleepD">None logged yet</span></div>
+  </section>
+
+  <section class="remind" aria-label="Feed reminder">
+    <label class="sw"><input type="checkbox" id="remOn" checked><span>Wake-to-feed alert, 3 hours from the start of a feed</span></label>
+    <label class="sw"><input type="checkbox" id="keepAwake"><span>Keep screen on</span></label>
+    <p class="note" id="remNote">Alerts show and chime while this chart is open on this device.</p>
+  </section>
+
+  <section class="panel" aria-label="Log something">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-feed" aria-selected="true" aria-controls="pane-feed">Feed</button>
+      <button role="tab" id="tab-sleep" aria-selected="false" aria-controls="pane-sleep">Sleep</button>
+      <button role="tab" id="tab-nappy" aria-selected="false" aria-controls="pane-nappy">Nappy</button>
+    </div>
+
+    <div class="pane" id="pane-feed" role="tabpanel">
+      <p class="lastused" id="lastUsed">No breastfeeds logged yet.</p>
+      <div class="choices" id="sidePick">
+        <button class="choice" data-side="L" style="--c:var(--left)" aria-pressed="false"><span class="dot"></span>Left</button>
+        <button class="choice" data-side="R" style="--c:var(--right)" aria-pressed="false"><span class="dot"></span>Right</button>
+        <button class="choice" data-side="B" style="--c:var(--both)" aria-pressed="false"><span class="dot"></span>Both</button>
+        <button class="choice" data-side="BO" style="--c:var(--bottle)" aria-pressed="false"><span class="dot"></span>Bottle</button>
+      </div>
+      <label class="field notefield"><span class="label">Note (optional)</span><input id="feedNote" type="text" maxlength="200" autocomplete="off" placeholder="e.g. fussy, good latch, spat up"></label>
+      <button class="btn" id="feedStart">Start feed now</button>
+      <div class="or">or log a finished feed</div>
+      <div class="fields">
+        <label class="field"><span class="label">Started at</span><input id="feedAt" type="time"></label>
+        <label class="field"><span class="label">Minutes</span><input id="feedMins" type="number" inputmode="numeric" min="0" max="180" placeholder="e.g. 15"></label>
+        <label class="field" id="mlField" hidden><span class="label">Amount (ml)</span><input id="feedMl" type="number" inputmode="numeric" min="0" step="5" placeholder="e.g. 90"></label>
+      </div>
+      <div class="lastrow" id="lastRow" hidden>
+        <span class="label">Last side used</span>
+        <div class="choices two" id="lastPick">
+          <button class="choice" data-last="L" style="--c:var(--left)" aria-pressed="false"><span class="dot"></span>Left</button>
+          <button class="choice" data-last="R" style="--c:var(--right)" aria-pressed="false"><span class="dot"></span>Right</button>
+        </div>
+        <p class="note">The side <span class="bn">Baby</span> finished on. Next feed starts on the other one.</p>
+      </div>
+      <button class="btn ghost" id="feedSave">Save feed</button>
+      <p class="note">Leave the time blank to use right now.</p>
+    </div>
+
+    <div class="pane" id="pane-sleep" role="tabpanel" hidden>
+      <label class="field notefield"><span class="label">Note (optional)</span><input id="sleepNote" type="text" maxlength="200" autocomplete="off" placeholder="e.g. in bassinet, settled with patting"></label>
+      <button class="btn" id="sleepNow">Fell asleep now</button>
+      <div class="or">or log a past sleep</div>
+      <div class="fields">
+        <label class="field"><span class="label">Fell asleep</span><input id="sleepFrom" type="time"></label>
+        <label class="field"><span class="label">Woke up</span><input id="sleepTo" type="time"></label>
+      </div>
+      <p class="err" id="sleepErr" hidden></p>
+      <button class="btn ghost" id="sleepSave">Save sleep</button>
+    </div>
+
+    <div class="pane" id="pane-nappy" role="tabpanel" hidden>
+      <div class="fields">
+        <label class="field"><span class="label">Changed at</span><input id="nappyAt" type="time"></label>
+      </div>
+      <label class="field notefield"><span class="label">Note (optional)</span><input id="nappyNote" type="text" maxlength="200" autocomplete="off" placeholder="e.g. nappy rash, mustard yellow"></label>
+      <div class="choices">
+        <button class="choice go" data-nappy="wee" style="--c:var(--wee)"><span class="dot"></span>Wee</button>
+        <button class="choice go" data-nappy="poo" style="--c:var(--poo)"><span class="dot"></span>Poo</button>
+        <button class="choice go" data-nappy="both" style="--c:var(--both)"><span class="dot"></span>Both</button>
+        <button class="choice go" data-nappy="dry" style="--c:var(--dry)"><span class="dot"></span>Dry<span class="small">fresh change</span></button>
+      </div>
+      <p class="note">Add a time or note first if you need to, then one tap logs it. A blank time means right now.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="healthSec" aria-label="Health">
+    <div class="head"><h2>Health</h2><span class="note">Temperature and medication</span></div>
+    <div id="hStatus" class="hstatus"></div>
+    <div class="tabs two" role="tablist">
+      <button role="tab" id="tab-temp" aria-selected="true" aria-controls="pane-temp">Temperature</button>
+      <button role="tab" id="tab-med" aria-selected="false" aria-controls="pane-med">Medication</button>
+    </div>
+    <div class="pane" id="pane-temp" role="tabpanel">
+      <div class="fields">
+        <label class="field"><span class="label">Temperature (°C)</span><input id="tempC" type="number" inputmode="decimal" step="0.1" min="30" max="43" placeholder="e.g. 36.8"></label>
+        <label class="field"><span class="label">Taken at</span><input id="tempAt" type="time"></label>
+      </div>
+      <div class="lastrow">
+        <span class="label">Measured</span>
+        <div class="choices three" id="tempMethod">
+          <button class="choice" data-m="armpit" style="--c:var(--temp)" aria-pressed="true">Armpit</button>
+          <button class="choice" data-m="ear" style="--c:var(--temp)" aria-pressed="false">Ear</button>
+          <button class="choice" data-m="forehead" style="--c:var(--temp)" aria-pressed="false">Forehead</button>
+        </div>
+      </div>
+      <label class="field notefield"><span class="label">Note (optional)</span><input id="tempNote" type="text" maxlength="200" autocomplete="off" placeholder="e.g. after bath, seemed warm"></label>
+      <p class="err" id="tempErr" hidden></p>
+      <button class="btn" id="tempSave">Save temperature</button>
+      <p class="note">Armpit with a digital thermometer is the usual method for young babies.</p>
+    </div>
+    <div class="pane" id="pane-med" role="tabpanel" hidden>
+      <div class="fields">
+        <label class="field" style="flex-basis:100%"><span class="label">Medicine</span><input id="medName" type="text" maxlength="80" list="medList" autocomplete="off" placeholder="e.g. Paracetamol infant drops"></label>
+        <datalist id="medList"></datalist>
+        <label class="field"><span class="label">Dose given</span><input id="medDose" type="text" maxlength="40" autocomplete="off" placeholder="e.g. 1.2 ml"></label>
+        <label class="field"><span class="label">Given at</span><input id="medAt" type="time"></label>
+      </div>
+      <label class="field notefield"><span class="label">Note (optional)</span><input id="medNote" type="text" maxlength="200" autocomplete="off" placeholder="e.g. prescribed by GP for 5 days"></label>
+      <p class="err" id="medErr" hidden></p>
+      <button class="btn" id="medSave">Save medication</button>
+      <p class="note">Give the dose on the label for <span class="bn">Baby</span>'s age and weight, or what your doctor or pharmacist advised. Check the log above before giving another dose.</p>
+    </div>
+  </section>
+
+  <section class="day" aria-label="Last 24 hours">
+    <div class="head"><h2>Last 24 hours</h2><span class="note" id="ageTag"></span></div>
+    <p class="guide" id="guide"></p>
+    <div class="tiles">
+      <div class="tile"><div class="v" id="tFeeds">0</div><div class="d" id="tFeedsD">feeds</div></div>
+      <div class="tile"><div class="v" id="tWet">0</div><div class="d" id="tWetD">wet nappies</div></div>
+      <div class="tile"><div class="v" id="tDirty">0</div><div class="d" id="tDirtyD">dirty nappies</div></div>
+      <div class="tile"><div class="v" id="tSleep">0h</div><div class="d" id="tSleepD">asleep</div></div>
+    </div>
+    <div class="ribbon">
+      <div id="rib24" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+  </section>
+
+  <section class="hist" id="histSec" aria-label="History">
+    <div class="histhead">
+      <h2>History</h2>
+      <div class="tabs two" role="tablist">
+        <button role="tab" id="view-cal" aria-selected="true">Calendar</button>
+        <button role="tab" id="view-list" aria-selected="false">List</button>
+      </div>
+    </div>
+    <div class="filters" id="filters" role="group" aria-label="Show in history">
+      <button class="chip" data-f="all" aria-pressed="true">All</button>
+      <button class="chip" data-f="feed" aria-pressed="true"><i style="--c:var(--accent)"></i>Feeds</button>
+      <button class="chip" data-f="sleep" aria-pressed="true"><i style="--c:var(--sleep)"></i>Sleep</button>
+      <button class="chip" data-f="nappy" aria-pressed="true"><i style="--c:var(--wee)"></i>Nappies</button>
+      <button class="chip" data-f="health" aria-pressed="true"><i style="--c:var(--temp)"></i>Health</button>
+    </div>
+    <div id="cal">
+      <div class="calbox">
+        <div class="calnav">
+          <button class="navbtn" id="calPrev" aria-label="Previous month">‹</button>
+          <h3 id="calTitle"></h3>
+          <button class="navbtn" id="calNext" aria-label="Next month">›</button>
+        </div>
+        <div class="dow"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
+        <div class="calgrid" id="calGrid"></div>
+        <div class="legend"><span><i style="--c:var(--accent)"></i>Feeds</span><span><i style="--c:var(--wee)"></i>Wet nappies</span><span><i style="--c:var(--poo)"></i>Dirty nappies</span></div>
+      </div>
+      <div class="dayview" id="dayView" style="margin-top:14px"></div>
+    </div>
+    <div id="hist" hidden></div>
+  </section>
+
+  <details>
+    <summary>When to call the GP or 13 HEALTH</summary>
+    <ul>
+      <li>Fewer wet nappies than her day of life in the first 5 days (2 on day 2, 3 on day 3), fewer than 6 heavy wet nappies after that, or dark, strong-smelling wee.</li>
+      <li>Too sleepy to wake for feeds, or fewer than 8 feeds in 24 hours in the first weeks.</li>
+      <li>Temperature of 38°C or more while <span class="bn">Baby</span> is under 3 months old. See a doctor straight away.</li>
+      <li>Pale or white poo, blood in poo, green vomit, or poo still black and sticky after day 4.</li>
+    </ul>
+    <p class="note" style="margin-top:10px">13 HEALTH (Queensland): <span class="num">13 43 25 84</span>, any time. Call 000 if <span class="bn">Baby</span> is floppy, blue or struggling to breathe.</p>
+  </details>
+
+  <details class="settings" id="settingsBox">
+    <summary>Settings and family</summary>
+    <div class="setgrid">
+      <div class="fields">
+        <label class="field"><span class="label">Baby's name</span><input id="setName" type="text" maxlength="40" autocomplete="off"></label>
+        <label class="field"><span class="label">Date of birth</span><input id="setBirth" type="date"></label>
+      </div>
+      <button class="btn ghost" id="setSave">Save baby details</button>
+      <div class="setrow"><span class="label">Invite code</span><span class="code num" id="setCode">—</span><button class="btn ghost sm" id="setCopy">Copy</button></div>
+      <p class="note">To share the chart, your partner signs up in the app or the web version, chooses <b>Join with a code</b> and enters this code.</p>
+      <div class="setrow" id="notifRow" hidden><span class="label">Phone alerts</span><span id="notifState"></span><button class="btn ghost sm" id="notifBtn">Turn on</button></div>
+      <div class="setrow"><span class="label">Earlier log</span><label class="btn ghost sm filebtn" for="importFile">Import file</label><input id="importFile" type="file" accept=".json,application/json" class="vh"><button class="btn ghost sm" id="exportBtn">Export</button></div>
+      <p class="note" id="importNote" hidden></p>
+      <div class="setrow"><span class="label">Signed in</span><span id="setEmail" class="email"></span><button class="btn ghost sm" id="signOutBtn">Sign out</button></div>
+    </div>
+  </details>
+
+  <p class="foot" id="mode">Connecting…</p>
+</div>
+
+<div class="sheet-bg" id="editBg" hidden></div>
+<div class="sheet" id="editSheet" hidden role="dialog" aria-modal="true" aria-labelledby="editTitle">
+  <div class="sheet-in">
+    <div class="head"><h2 id="editTitle">Edit entry</h2><button class="del" id="editClose" aria-label="Close">✕</button></div>
+    <div class="pane" id="editBody"></div>
+    <p class="err" id="editErr" hidden></p>
+    <div class="fields"><button class="btn ghost" id="editCancel" style="flex:1">Cancel</button><button class="btn" id="editSave" style="flex:2">Save changes</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" hidden>Undo</button></div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

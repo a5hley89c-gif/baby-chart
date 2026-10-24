@@ -1,0 +1,75 @@
+name: Build Android app
+
+# Runs on every change to main, or by hand from the Actions tab ("Run workflow").
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Build the app's web files
+        run: npm run build
+        env:
+          BUILD_ID: ${{ github.run_number }}
+
+      - name: Create the Android project
+        run: |
+          npx cap add android
+          npx @capacitor/assets generate --android \
+            --iconBackgroundColor "#3f3a8c" --iconBackgroundColorDark "#3f3a8c" \
+            --splashBackgroundColor "#f5f4f9" --splashBackgroundColorDark "#12111a"
+          node scripts/patch-android.mjs
+          npx cap sync android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+
+      - name: Build
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p out
+          cd android
+          chmod +x gradlew
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::No signing key secrets are set, so this is a test (debug) build. Add the 4 ANDROID_* secrets for an installable release build and a Play Store file."
+            ./gradlew assembleDebug --no-daemon
+            cp app/build/outputs/apk/debug/app-debug.apk ../out/baby-chart-test.apk
+          else
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
+            ./gradlew assembleRelease bundleRelease --no-daemon
+            cp app/build/outputs/apk/release/app-release.apk ../out/baby-chart.apk
+            cp app/build/outputs/bundle/release/app-release.aab ../out/baby-chart-for-play-store.aab
+            rm -f "$RUNNER_TEMP/release.jks"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baby-chart-android-${{ github.run_number }}
+          path: out/
+          retention-days: 30

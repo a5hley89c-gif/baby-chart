@@ -1,0 +1,27 @@
+{
+  "name": "baby-chart",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Feeds, sleep, nappies and health log for a newborn, shared between parents. Android app (Capacitor) and installable web app.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "android:add": "cap add android",
+    "android:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/local-notifications": "^8.0.0",
+    "firebase": "^12.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.0.0",
+    "esbuild": "^0.25.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

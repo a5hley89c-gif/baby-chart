@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Security rules for Baby Chart.
+// Paste this whole file into Firebase console > Firestore Database > Rules, then Publish.
+//
+// - Each person can only read and write their own users/{uid} record.
+// - A family's chart (and its entries) can only be read or written by its members.
+// - Someone joins a family by entering its 8-character invite code; they can add only themselves.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function familyDoc(fid) { return get(/databases/$(database)/documents/families/$(fid)); }
+    function isMember(fid) { return signedIn() && request.auth.uid in familyDoc(fid).data.members; }
+
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /joinCodes/{code} {
+      allow get: if signedIn();                       // you must already know the code
+      allow list: if false;                           // codes can't be browsed
+      allow create: if signedIn()
+                    && request.resource.data.keys().hasOnly(['familyId'])
+                    && isMember(request.resource.data.familyId);
+      allow update, delete: if false;
+    }
+
+    match /families/{fid} {
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+
+      allow create: if signedIn()
+                    && request.resource.data.members == [request.auth.uid]
+                    && request.resource.data.code is string
+                    && request.resource.data.code.size() == 8;
+
+      allow update: if signedIn() && (
+        // members can change the baby's details, but not the member list or the code
+        (request.auth.uid in resource.data.members
+          && request.resource.data.members == resource.data.members
+          && request.resource.data.code == resource.data.code)
+        ||
+        // joining: add only yourself, change nothing else, at most 6 people
+        (!(request.auth.uid in resource.data.members)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.hasAll(resource.data.members)
+          && request.resource.data.members.size() == resource.data.members.size() + 1
+          && request.auth.uid in request.resource.data.members
+          && resource.data.members.size() < 6)
+      );
+
+      allow delete: if false;
+
+      match /entries/{entryId} {
+        allow read, write: if isMember(fid);
+      }
+    }
+  }
+}
