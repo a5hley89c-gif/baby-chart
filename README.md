@@ -110,9 +110,7 @@ This needs a paid Apple Developer Program membership. Once Apple has approved it
    - `APPLE_TEAM_ID`: your Team ID
    - `ASC_KEY_ID`: the Key ID
    - `ASC_ISSUER_ID`: the Issuer ID
-   - `ASC_KEY_P8_BASE64`: the `.p8` file converted to base64. On Windows, open PowerShell in the folder with the file and run:
-     `[Convert]::ToBase64String([IO.File]::ReadAllBytes("AuthKey_XXXXXXXXXX.p8")) | Set-Clipboard`
-     Then paste it as the secret value.
+   - `ASC_KEY_P8_BASE64`: open the `.p8` file in Notepad, copy everything (including the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines) and paste it in.
 6. Run **Actions › Build iPhone app › Run workflow**. The build uploads to App Store Connect.
 7. **Add testers:**
    - In App Store Connect › **Users and Access**, add your partner's Apple ID email as a user with the **Customer Support** role. Internal testers must be team members.

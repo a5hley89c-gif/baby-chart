@@ -84,7 +84,20 @@ jobs:
           fi
 
           KEY="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
-          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$KEY"
+          # The secret can be the .p8 file's text pasted as-is, or that file in base64
+          if printf '%s' "$ASC_KEY_P8_BASE64" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$ASC_KEY_P8_BASE64" > "$KEY"
+          else
+            printf '%s' "$ASC_KEY_P8_BASE64" | tr -d ' \r\n' | base64 --decode > "$KEY" 2>/dev/null || true
+          fi
+          if ! grep -q "BEGIN PRIVATE KEY" "$KEY"; then
+            echo "::error title=Apple API key::The ASC_KEY_P8_BASE64 secret isn't a valid key. Open the AuthKey_....p8 file in Notepad, copy everything (including the BEGIN and END lines) and paste it as the secret."
+            exit 1
+          fi
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ]; then
+            echo "::error title=Apple API key::The ASC_KEY_ID or ASC_ISSUER_ID secret is missing."
+            exit 1
+          fi
           AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 
           # 1. Build the archive (unsigned; it's signed for the App Store in step 2)
