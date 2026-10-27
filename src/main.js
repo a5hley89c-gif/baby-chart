@@ -105,6 +105,9 @@ if(configured){
         onError: e => { try{ console.error(e); }catch(_){} },
         subscribeRecent: (n, cb, err) =>
           onSnapshot(query(col, orderBy("t", "desc"), limit(n)), s => cb(list(s)), err),
+        // all entries of one kind (e.g. every weight), whatever their age; sorted by the caller
+        subscribeKind: (kind, cb, err) =>
+          onSnapshot(query(col, where("kind", "==", kind), limit(500)), s => cb(list(s)), err),
         subscribeRange: (a, b, cb, err) =>
           onSnapshot(query(col, where("t", ">=", a), where("t", "<", b), orderBy("t", "desc"), limit(1000)), s => cb(list(s)), err),
         add(obj){

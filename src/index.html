@@ -162,12 +162,13 @@
     </div>
   </section>
 
-  <section class="panel" id="healthSec" aria-label="Health">
-    <div class="head"><h2>Health</h2><span class="note">Temperature and medication</span></div>
+  <section class="panel" id="healthSec" aria-label="Baby Health">
+    <div class="head"><h2>Baby Health</h2><span class="note">Temperature, medicine, weight</span></div>
     <div id="hStatus" class="hstatus"></div>
-    <div class="tabs two" role="tablist">
+    <div class="tabs" role="tablist">
       <button role="tab" id="tab-temp" aria-selected="true" aria-controls="pane-temp">Temperature</button>
       <button role="tab" id="tab-med" aria-selected="false" aria-controls="pane-med">Medication</button>
+      <button role="tab" id="tab-wt" aria-selected="false" aria-controls="pane-wt">Weight</button>
     </div>
     <div class="pane" id="pane-temp" role="tabpanel">
       <div class="fields">
@@ -198,6 +199,18 @@
       <p class="err" id="medErr" hidden></p>
       <button class="btn" id="medSave">Save medication</button>
       <p class="note">Give the dose on the label for <span class="bn">Baby</span>'s age and weight, or what your doctor or pharmacist advised. Check the log above before giving another dose.</p>
+    </div>
+    <div class="pane" id="pane-wt" role="tabpanel" hidden>
+      <div class="fields">
+        <label class="field"><span class="label">Weight (kg)</span><input id="wtKg" type="number" inputmode="decimal" step="0.005" min="0.5" max="30" placeholder="e.g. 3.42"></label>
+        <label class="field"><span class="label">Date weighed</span><input id="wtDate" type="date"></label>
+      </div>
+      <label class="sw"><input type="checkbox" id="wtBirth"><span>This is <span class="bn">Baby</span>'s birth weight</span></label>
+      <label class="field notefield"><span class="label">Note (optional)</span><input id="wtNote" type="text" maxlength="200" autocomplete="off" placeholder="e.g. weighed by child health nurse, nappy off"></label>
+      <p class="err" id="wtErr" hidden></p>
+      <button class="btn" id="wtSave">Save weight</button>
+      <div id="wtChart" class="wtchart"></div>
+      <p class="note" id="wtGuide"></p>
     </div>
   </section>
 

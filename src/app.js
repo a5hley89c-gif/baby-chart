@@ -131,7 +131,8 @@ function ribbonHtml(list, w0, w1){
   const sl = list.filter(e=>e.kind==="sleep" && endOf(e) > w0 && e.t < w1).map(e=>seg("var(--sleep)", pct(e.t), pct(endOf(e)))).join("");
   const fd = list.filter(e=>e.kind==="feed" && e.t >= w0 && e.t < w1).map(e=>seg(SIDECOL[e.side], pct(e.t), pct(e.open ? now : Math.max(e.end, e.t + 5*MIN)))).join("");
   const np = list.filter(e=>e.kind==="nappy" && e.t >= w0 && e.t < w1).map(e=>`<span class="pip" style="--c:${NAPPYCOL[e.type]};left:${pct(e.t)}%"></span>`).join("");
-  const hl = list.filter(e=>(e.kind==="temp" || e.kind==="med") && e.t >= w0 && e.t < w1).map(e=>{
+  const hl = list.filter(e=>(e.kind==="temp" || e.kind==="med" || e.kind==="weight") && e.t >= w0 && e.t < w1).map(e=>{
+    if(e.kind==="weight") return `<span class="pip" title="${fmtKg(e.g)}" style="--c:var(--accent);left:${pct(e.t)}%"></span>`;
     if(e.kind==="temp"){ const bad = e.c >= 38 || e.c < 36;
       return `<span class="pip" title="${Number(e.c).toFixed(1)}°C at ${fmtTime(e.t)}" style="--c:${bad ? "var(--danger)" : "var(--temp)"};left:${pct(e.t)}%"></span>`; }
     return `<span class="pip dia" title="${esc(e.name)} ${esc(e.dose || "")} at ${fmtTime(e.t)}" style="--c:var(--med);left:${pct(e.t)}%"></span>`;
@@ -313,7 +314,7 @@ const NONE = () => ({feed:false, sleep:false, nappy:false, health:false});
 let filt = ALL();
 try{ const f = JSON.parse(localStorage.getItem("harper-chart-filter") || "null"); if(f && (f.feed||f.sleep||f.nappy||f.health)) filt = Object.assign(ALL(), f); }catch(e){}
 const allOn = () => filt.feed && filt.sleep && filt.nappy && filt.health;
-const groupOf = e => (e.kind==="temp" || e.kind==="med") ? "health" : e.kind;
+const groupOf = e => (e.kind==="temp" || e.kind==="med" || e.kind==="weight") ? "health" : e.kind;
 const shown = e => !!filt[groupOf(e)];
 function paintFilters(){
   document.querySelectorAll("#filters .chip").forEach(c=>c.setAttribute("aria-pressed", c.dataset.f==="all" ? allOn() : !!filt[c.dataset.f]));
@@ -337,6 +338,13 @@ function rowText(e){
   if(e.kind==="temp"){ const hi = e.c >= 38, lo = e.c < 36;
     return { c: hi || lo ? "var(--danger)" : "var(--temp)", h: "Temperature · " + Number(e.c).toFixed(1) + "°C", s: [METHOD[e.method], hi ? "fever" : lo ? "low" : ""].filter(Boolean).join(" · ") }; }
   if(e.kind==="med") return { c: "var(--med)", h: "Medication · " + esc(e.name), s: esc(e.dose || "") };
+  if(e.kind==="weight"){
+    const prev = weights.filter(w => w.t < e.t).slice(-1)[0];
+    const bits = [];
+    if(e.birth) bits.push("birth weight");
+    if(prev) bits.push((e.g >= prev.g ? "+" : "−") + Math.abs(e.g - prev.g) + " g since " + new Date(prev.t).toLocaleDateString("en-AU",{day:"numeric",month:"short"}));
+    return { c: "var(--accent)", h: "Weight · " + fmtKg(e.g), s: bits.join(" · ") };
+  }
   return { c: NAPPYCOL[e.type], h: "Nappy · " + NAPPY[e.type], s: "" };
 }
 function renderHist(){
@@ -450,10 +458,10 @@ document.querySelectorAll("[data-nappy]").forEach(b=>b.addEventListener("click",
 
 /* ---------- health ---------- */
 function showHTab(name){
-  ["temp","med"].forEach(n=>{ $("#tab-"+n).setAttribute("aria-selected", n===name); $("#pane-"+n).hidden = n!==name; });
+  ["temp","med","wt"].forEach(n=>{ $("#tab-"+n).setAttribute("aria-selected", n===name); $("#pane-"+n).hidden = n!==name; });
   try{ localStorage.setItem("harper-chart-htab", name); }catch(e){}
 }
-["temp","med"].forEach(n=>$("#tab-"+n).addEventListener("click", ()=>showHTab(n)));
+["temp","med","wt"].forEach(n=>$("#tab-"+n).addEventListener("click", ()=>showHTab(n)));
 try{ const t = localStorage.getItem("harper-chart-htab"); if(t) showHTab(t); }catch(e){}
 let method = "armpit";
 document.querySelectorAll("#tempMethod .choice").forEach(b=>b.addEventListener("click", ()=>{ method = b.dataset.m; document.querySelectorAll("#tempMethod .choice").forEach(x=>x.setAttribute("aria-pressed", x===b)); }));
@@ -478,8 +486,101 @@ $("#medSave").addEventListener("click", async ()=>{
   toast(name + " " + dose + " saved at " + fmtTime(t));
 });
 
+/* ---------- weight ---------- */
+let weights = [];                     // this child's weights, oldest first (own subscription, not limited to recent entries)
+let unsubWeights = null;
+const fmtKg = g => (g / 1000).toFixed(g % 10 ? 3 : 2).replace(/0$/, "") + " kg";
+function parseWeight(v){
+  let n = parseFloat(String(v || "").replace(",", "."));
+  if(!isFinite(n) || n <= 0) return null;
+  if(n > 100) n = n / 1000;           // typed in grams, e.g. 3420
+  if(n < 0.5 || n > 30) return null;
+  return Math.round(n * 1000);         // stored in grams
+}
+const dateInputToday = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+function subscribeWeights(){
+  if(unsubWeights){ try{ unsubWeights(); }catch(e){} unsubWeights = null; }
+  weights = [];
+  if(!store.subscribeKind) return;
+  unsubWeights = store.subscribeKind("weight", list => {
+    weights = list.slice().sort((a, b) => a.t - b.t);
+    renderHealth(); renderHist();
+  }, () => {});
+}
+$("#wtBirth").addEventListener("change", e => { if(e.target.checked && FAM.birth) $("#wtDate").value = FAM.birth; });
+$("#wtSave").addEventListener("click", async () => {
+  const err = $("#wtErr"); err.hidden = true;
+  const g = parseWeight($("#wtKg").value);
+  if(!g){ err.textContent = "Enter a weight in kg, for example 3.42 (or in grams, like 3420)."; err.hidden = false; return; }
+  const dv = $("#wtDate").value || dateInputToday();
+  const [y, m, d] = dv.split("-").map(Number);
+  let t;
+  if(dv === dateInputToday()) t = Date.now();
+  else { const dt = new Date(y, m - 1, d, 12, 0, 0); t = dt.getTime(); }
+  if(t > Date.now() + MIN){ err.textContent = "That date is in the future."; err.hidden = false; return; }
+  const entry = withNote({ kind: "weight", g, t }, "#wtNote");
+  if($("#wtBirth").checked) entry.birth = true;
+  await addEntry(entry);
+  $("#wtKg").value = ""; $("#wtNote").value = ""; $("#wtBirth").checked = false; $("#wtDate").value = "";
+  toast(fmtKg(g) + " saved");
+});
+
+function weightChart(){
+  const box = $("#wtChart"), guide = $("#wtGuide");
+  const a = ageInfo();
+  guide.textContent = a.days <= 14
+    ? "Babies often lose up to 7–10% of their birth weight in the first few days, and are usually back to birth weight by about 10–14 days."
+    : a.months < 3
+      ? "From about 2 weeks, babies typically gain around 150–200 g a week. Your child health nurse plots weights on the growth charts in the Red Book."
+      : "Weight gain slows as babies grow. Your child health nurse plots weights on the growth charts in the Red Book.";
+  if(!weights.length){ box.innerHTML = `<p class="note">No weights yet. Add ${esc(NM())}'s birth weight first, then each weigh-in.</p>`; return; }
+  const birth = weights.find(w => w.birth) || null;
+  const last = weights[weights.length - 1];
+  const prev = weights.length > 1 ? weights[weights.length - 2] : null;
+  // summary tiles: latest, change since the previous weigh-in, and change vs birth weight
+  const dshort = t => new Date(t).toLocaleDateString("en-AU",{day:"numeric",month:"short"});
+  let tiles = [`<div><b>${fmtKg(last.g)}</b><span>${dshort(last.t)}</span></div>`];
+  if(prev){
+    const days = Math.max(1, Math.round((last.t - prev.t) / DAY)), diff = last.g - prev.g;
+    const perWeek = Math.round(diff / Math.max(1, (last.t - prev.t) / DAY) * 7);
+    tiles.push(`<div><b>${diff >= 0 ? "+" : "−"}${Math.abs(diff)} g</b><span>in ${days} day${days === 1 ? "" : "s"} (${perWeek >= 0 ? "+" : "−"}${Math.abs(perWeek)} g/wk)</span></div>`);
+  }
+  if(birth && last !== birth){
+    const pctB = (last.g - birth.g) / birth.g * 100;
+    tiles.push(`<div><b>${pctB >= 0 ? "+" : "−"}${Math.abs(pctB).toFixed(1)}%</b><span>vs birth weight</span></div>`);
+  }
+  const sum = `<div class="wtsum">${tiles.join("")}</div>`;
+  // graph
+  if(weights.length < 2){ box.innerHTML = sum + `<p class="note">Add another weight to see the graph.</p>`; return; }
+  const W = 340, H = 190, L = 40, R = 14, T = 16, B = 26;
+  const t0 = weights[0].t, t1 = Math.max(last.t, t0 + DAY);
+  const gs = weights.map(w => w.g).concat(birth ? [birth.g] : []);
+  let lo = Math.min(...gs), hi = Math.max(...gs);
+  const span = Math.max(hi - lo, 200); lo = lo - span * 0.15; hi = hi + span * 0.15;
+  const step = [50, 100, 200, 250, 500, 1000, 2000].find(s => (hi - lo) / s <= 5) || 2000;
+  const x = t => L + (t - t0) / (t1 - t0) * (W - L - R);
+  const y = g => T + (hi - g) / (hi - lo) * (H - T - B);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight over time">`;
+  for(let g = Math.ceil(lo / step) * step; g <= hi; g += step){
+    svg += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}"/><text class="ax" x="${L - 6}" y="${y(g) + 3}" text-anchor="end">${(g / 1000).toFixed(step < 100 ? 2 : 1)}</text>`;
+  }
+  const dl = t => new Date(t).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  svg += `<text class="ax" x="${L}" y="${H - 6}" text-anchor="start">${dl(t0)}</text><text class="ax" x="${W - R}" y="${H - 6}" text-anchor="end">${dl(last.t)}</text>`;
+  if(birth){
+    svg += `<line class="bw" x1="${L}" x2="${W - R}" y1="${y(birth.g)}" y2="${y(birth.g)}"/><text class="bwl" x="${L + 6}" y="${y(birth.g) + (y(birth.g) - T < 14 ? 13 : -5)}" text-anchor="start">birth weight</text>`;
+  }
+  const pts = weights.map(w => `${x(w.t).toFixed(1)},${y(w.g).toFixed(1)}`);
+  svg += `<polygon class="ar" points="${x(t0)},${H - B} ${pts.join(" ")} ${x(last.t)},${H - B}"/>`;
+  svg += `<polyline class="ln" points="${pts.join(" ")}"/>`;
+  weights.forEach((w, i) => { svg += `<circle class="pt${i === weights.length - 1 ? " last" : ""}" cx="${x(w.t)}" cy="${y(w.g)}" r="${i === weights.length - 1 ? 4.5 : 3.5}"><title>${fmtKg(w.g)} on ${dl(w.t)}</title></circle>`; });
+  svg += `<text class="vl" x="${Math.min(x(last.t), W - R)}" y="${y(last.g) - 9}" text-anchor="end">${fmtKg(last.g)}</text>`;
+  svg += `<text class="ax" x="${L - 6}" y="${T - 4}" text-anchor="end">kg</text></svg>`;
+  box.innerHTML = sum + svg;
+}
+
 function renderHealth(){
   const now = Date.now();
+  weightChart();
   const lt = entries.find(e=>e.kind==="temp");
   const meds = entries.filter(e=>e.kind==="med" && e.t >= now - DAY);
   let html = "";
@@ -489,6 +590,11 @@ function renderHealth(){
   }
   if(meds.length){
     html += `<div class="hline"><span class="k">Meds, 24 h</span><span class="val">${meds.map(m=>`<b>${esc(m.name)}</b> ${esc(m.dose)} at ${fmtTime(m.t)} (${ago(m.t)})`).join("<br>")}</span></div>`;
+  }
+  const lw = weights[weights.length - 1];
+  if(lw){
+    const bw = weights.find(w => w.birth);
+    html += `<div class="hline"><span class="k">Weight</span><span class="val"><b>${fmtKg(lw.g)}</b> · ${new Date(lw.t).toLocaleDateString("en-AU",{day:"numeric",month:"short"})}${bw && bw !== lw ? " · " + ((lw.g - bw.g) >= 0 ? "+" : "−") + Math.abs(lw.g - bw.g) + " g vs birth" : ""}</span></div>`;
   }
   $("#hStatus").innerHTML = html;
   const names = [...new Set(entries.filter(e=>e.kind==="med").map(e=>e.name))].slice(0,12);
@@ -534,6 +640,10 @@ function openEdit(id){
     body = `<div class="fields">${fld("Temperature (°C)", `<input id="eC" type="number" inputmode="decimal" step="0.1" min="30" max="43" value="${Number(e.c).toFixed(1)}">`)}
       ${fld("Measured", `<select id="eMethod">${opt("armpit","Armpit",e.method)}${opt("ear","Ear",e.method)}${opt("forehead","Forehead",e.method)}</select>`)}
       ${at("Taken at")}</div>${note}`;
+  } else if(e.kind==="weight"){
+    title = "Edit weight";
+    body = `<div class="fields">${fld("Weight (kg)", `<input id="eKg" type="number" inputmode="decimal" step="0.005" min="0.5" max="30" value="${(e.g/1000).toFixed(3)}">`)}
+      ${at("Weighed on")}</div>${note}`;
   } else if(e.kind==="med"){
     title = "Edit medication";
     body = `<div class="fields">${fld("Medicine", `<input id="eName" type="text" maxlength="80" value="${esc(e.name)}">`, true)}
@@ -578,6 +688,10 @@ $("#editSave").addEventListener("click", async ()=>{
     const c = parseFloat(String($("#eC").value).replace(",", "."));
     if(!(c >= 30 && c <= 43)) return editError("Enter a temperature between 30 and 43 °C.");
     patch.c = Math.round(c*10)/10; patch.method = $("#eMethod").value;
+  } else if(e.kind==="weight"){
+    const g = parseWeight($("#eKg").value);
+    if(!g) return editError("Enter a weight in kg, for example 3.42.");
+    patch.g = g;
   } else if(e.kind==="med"){
     const name = $("#eName").value.trim().slice(0,80), dose = $("#eDose").value.trim().slice(0,40);
     if(!name) return editError("Enter the medicine's name.");
@@ -697,6 +811,7 @@ function boot(){
     render(); syncDefaultSide();
   }, ()=>toast("Lost connection to the chart. Close and reopen the app to reconnect."));
   subscribeMonth();
+  subscribeWeights();
 }
 paintName();
 boot();
@@ -706,7 +821,8 @@ return {
   setFamily(f){ FAM = Object.assign({}, FAM, f || {}); paintName(); render(); },
   // Show a different child's log: new store, name and birth date
   switchChild(next){
-    try{ unsubRecent && unsubRecent(); monthUnsub && monthUnsub(); }catch(e){}
+    try{ unsubRecent && unsubRecent(); monthUnsub && monthUnsub(); unsubWeights && unsubWeights(); }catch(e){}
+    unsubWeights = null;
     if(editing) closeEdit();
     store = next.store; store.onError = fail;
     KEY_SFX = next.key ? "-" + next.key : "";

@@ -31,6 +31,7 @@ export const backend = {
     const s = {
       onError(){},
       subscribeRecent(n, cb){ const f = () => cb(all().slice(0, n)); listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f); },
+      subscribeKind(kind, cb){ const f = () => cb(all().filter(e => e.kind === kind)); listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f); },
       subscribeRange(a, b, cb){ const f = () => cb(all().filter(e => e.t >= a && e.t < b)); listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f); },
       add(obj){ const k = rid(); db.entries[id][k] = JSON.parse(JSON.stringify(obj)); save(); notify(); return k; },
       update(k, patch){ Object.assign(db.entries[id][k], JSON.parse(JSON.stringify(patch))); save(); notify(); },
