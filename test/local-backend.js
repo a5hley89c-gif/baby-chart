@@ -39,5 +39,15 @@ export const backend = {
     return s;
   },
   async deleteAccount(pass, fid){ if(pass.length < 6){ const e = new Error("bad"); e.code = "auth/invalid-credential"; throw e; } const f = db.families[fid]; if(f){ f.members = f.members.filter(m => m !== current.uid); if(!f.members.length){ delete db.families[fid]; Object.keys(db.entries).forEach(k => { if(k === fid || k.startsWith(fid + "/")) delete db.entries[k]; }); } } delete db.users[current.uid]; save(); sessionStorage.removeItem("bc-test-user"); },
+  makeCol(fid, name, orderField = "t", dir = "desc"){
+    const key = fid + "#" + name; if(!db.entries[key]) db.entries[key] = {};
+    const all = () => Object.entries(db.entries[key]).map(([k, v]) => Object.assign({ id:k }, v)).sort((a, b) => dir === "desc" ? (b[orderField]||0) - (a[orderField]||0) : (a[orderField]||0) - (b[orderField]||0));
+    return {
+      subscribe(cb){ const f = () => cb(all()); listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f); },
+      add(obj){ const k = rid(); db.entries[key][k] = JSON.parse(JSON.stringify(Object.assign({}, obj, { by: current.uid }))); save(); notify(); return k; },
+      update(k, patch){ Object.assign(db.entries[key][k], JSON.parse(JSON.stringify(patch))); save(); notify(); },
+      remove(k){ delete db.entries[key][k]; save(); notify(); }
+    };
+  },
   async importEntries(fid, list, childId){ const id = (!childId || childId === "main") ? fid : fid + "/" + childId; if(!db.entries[id]) db.entries[id] = {}; for(const e of list){ const { id:k, ...rest } = e; db.entries[id][k] = rest; } save(); notify(); return list.length; }
 };

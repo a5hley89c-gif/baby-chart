@@ -201,6 +201,42 @@
     </div>
   </section>
 
+  <section class="panel" id="mumSec" aria-label="Mum's medications" hidden>
+    <div class="head"><h2>Mum's medications</h2><span class="duepill" id="mumDue" hidden></span></div>
+    <div id="mumList" class="medlist"></div>
+    <button class="btn ghost" id="mumAddBtn">+ Add a medication</button>
+    <div class="medform" id="mumForm" hidden>
+      <h3 class="setsub" id="mfTitle">Add a medication</h3>
+      <div class="fields">
+        <label class="field"><span class="label">Medicine</span><input id="mfName" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Paracetamol"></label>
+        <label class="field"><span class="label">Dose</span><input id="mfDose" type="text" maxlength="40" autocomplete="off" placeholder="e.g. 2 tablets (1 g)"></label>
+      </div>
+      <span class="label">When it's taken</span>
+      <div class="tabs two" role="group">
+        <button id="mfModeTimes" aria-pressed="true" type="button">At set times</button>
+        <button id="mfModeEvery" aria-pressed="false" type="button">Every few hours</button>
+      </div>
+      <div id="mfTimesBox">
+        <div id="mfTimes" class="mftimes"></div>
+        <button class="linkbtn" id="mfAddTime" type="button">+ Add another time</button>
+      </div>
+      <div id="mfEveryBox" hidden>
+        <label class="field"><span class="label">Hours between doses</span><input id="mfHours" type="number" inputmode="numeric" min="1" max="48" placeholder="e.g. 6"></label>
+        <p class="note">The reminder is set for that many hours after each dose is logged.</p>
+      </div>
+      <label class="sw"><input type="checkbox" id="mfRemind" checked><span>Remind me on this phone</span></label>
+      <p class="note">Reminders only go to phones where this is switched on, so Mum can turn them on in her own app.</p>
+      <p class="err" id="mfErr" hidden></p>
+      <div class="setbtns">
+        <button class="btn ghost" id="mfCancel" type="button">Cancel</button>
+        <button class="btn" id="mfSave" type="button">Save</button>
+      </div>
+      <button class="btn ghost danger" id="mfDelete" type="button" hidden>Delete medication</button>
+    </div>
+    <div id="mumDoses"></div>
+    <p class="note">Check doses with your pharmacist or doctor, especially while breastfeeding.</p>
+  </section>
+
   <section class="day" aria-label="Last 24 hours">
     <div class="head"><h2>Last 24 hours</h2><span class="note" id="ageTag"></span></div>
     <p class="guide" id="guide"></p>

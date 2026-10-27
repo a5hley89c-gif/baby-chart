@@ -60,12 +60,9 @@ service cloud.firestore {
       // the last remaining member can delete the family (when deleting their account)
       allow delete: if signedIn() && resource.data.members == [request.auth.uid];
 
-      match /entries/{entryId} {
-        allow read, write: if isMember(fid);
-      }
-
-      // logs for second and later children (twins, siblings)
-      match /children/{childId}/entries/{entryId} {
+      // Everything stored under a family (each child's log, Mum's medications and doses)
+      // can only be read or written by that family's members.
+      match /{document=**} {
         allow read, write: if isMember(fid);
       }
     }

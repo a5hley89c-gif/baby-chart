@@ -1,6 +1,7 @@
 // The app shell: sign-in, family set-up, settings, import/export.
 // It talks to a "backend" (Firebase in main.js, a local fake in test/) so it can be tested without a server.
 import { startChart } from "./app.js";
+import { startMum } from "./mum.js";
 
 const $ = s => document.querySelector(s);
 const show = (id) => ["#gLoading","#gConfig","#gAuth","#gFamily"].forEach(s => { $(s).hidden = s !== id; });
@@ -190,6 +191,13 @@ export function runShell(backend, native){
           ? "You'll also get a phone notification when a feed is due, even with the app closed. If your partner logs a feed on their phone, open the app so it can update the reminder."
           : "On iPhone, alerts show and chime while this app is open on screen.";
         refreshNotif();
+        if(backend.makeCol && user){
+          startMum({
+            meds: backend.makeCol(id, "mumMeds", "createdAt", "asc", 50),
+            doses: backend.makeCol(id, "mumDoses", "t", "desc", 300),
+            uid: user.uid, native, toast: toastLite
+          });
+        }
       } else if(chart){
         const k = kids.find(x => x.id === curKid);
         if(!k) chooseKid(kids[0].id);                // this child was removed on another phone

@@ -254,3 +254,31 @@ details ul{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;
 .dangerzone .field{margin:10px 0}
 .dangerzone .field input{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-height:44px;font-size:16px}
 .settings a{color:var(--accent);font-weight:700}
+
+/* Mum's medications */
+.medlist{display:flex;flex-direction:column;gap:10px}
+.medcard{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.medcard.due{border:2px solid var(--med);background:color-mix(in srgb, var(--med) 8%, var(--surface))}
+.medtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.medname{min-width:0;overflow-wrap:anywhere}
+.medname b{font-family:var(--display);font-size:1.05rem}
+.medname span{color:var(--muted)}
+.medmeta{font-size:.85rem;color:var(--muted)}
+.medstat{display:flex;flex-direction:column;gap:2px;font-size:.92rem}
+.medstat b{color:var(--med)}
+.medstat span{color:var(--muted);font-size:.85rem}
+.medacts{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.medacts .btn:not(.sm){grid-column:1 / -1}
+.medacts .btn.sm{min-height:44px}
+.field.mini{flex-direction:row;align-items:center;gap:8px;min-width:0}
+.field.mini .label{flex:none}
+.field.mini input{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;min-height:44px;min-width:0}
+.medform{display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:12px;background:var(--sunk)}
+.medform .field input{background:var(--surface)}
+.medform .tabs{background:var(--surface)}
+.medform .tabs button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.mftimes{display:flex;flex-direction:column;gap:6px}
+.mftime{display:flex;gap:6px;align-items:center}
+.mftime input{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;flex:1;max-width:200px;font:inherit;color:inherit}
+.duepill{background:var(--med);color:var(--on-accent);font-weight:700;font-size:.8rem;border-radius:999px;padding:3px 10px}
+#mumSec .linkbtn{align-self:flex-start;padding-left:0}

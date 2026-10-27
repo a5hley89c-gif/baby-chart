@@ -122,6 +122,18 @@ if(configured){
       return store;
     },
 
+    // Any other family-level list (e.g. Mum's medications and doses): live list + add/update/remove
+    makeCol(id, name, orderField = "t", dir = "desc", n = 300){
+      const col = collection(db, "families", id, name);
+      return {
+        subscribe: (cb, err) => onSnapshot(query(col, orderBy(orderField, dir), limit(n)),
+          s => cb(s.docs.map(d => Object.assign({ id: d.id }, d.data()))), err),
+        add(obj){ const ref = doc(col); setDoc(ref, clean(Object.assign({}, obj, { by: uid, at: Date.now() }))).catch(e => console.error(e)); return ref.id; },
+        update(docId, patch){ updateDoc(doc(col, docId), clean(Object.assign({}, patch, { at: Date.now() }))).catch(e => console.error(e)); },
+        remove(docId){ deleteDoc(doc(col, docId)).catch(e => console.error(e)); }
+      };
+    },
+
     // Permanently delete the signed-in account. If they're the only person in the family,
     // every child's log, the invite code and the family are deleted too; otherwise they just leave it.
     async deleteAccount(password, familyId){
@@ -142,6 +154,15 @@ if(configured){
                                          : collection(db, "families", familyId, "children", cid, "entries");
               for(;;){
                 const page = await getDocs(query(col, limit(400)));
+                if(page.empty) break;
+                const batch = writeBatch(db);
+                page.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+              }
+            }
+            for(const extra of ["mumMeds", "mumDoses"]){
+              for(;;){
+                const page = await getDocs(query(collection(db, "families", familyId, extra), limit(400)));
                 if(page.empty) break;
                 const batch = writeBatch(db);
                 page.docs.forEach(d => batch.delete(d.ref));
