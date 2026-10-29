@@ -22,6 +22,24 @@ function ensureMedChannel(){
   return medChannelReady;
 }
 
+// Separate Android channel, so the "still feeding?" sound can be changed or muted in phone settings
+// without touching the wake-to-feed alerts.
+const CHECK_ID = 4001;
+const CHECK_CHANNEL = "feed-check";
+const checkKey = {};
+let checkChannelReady = null;
+function ensureCheckChannel(){
+  if(!isNative) return Promise.resolve();
+  if(!checkChannelReady){
+    checkChannelReady = LocalNotifications.createChannel({
+      id: CHECK_CHANNEL, name: "Still feeding? checks",
+      description: "Asks if a feed is still going once it runs longer than usual",
+      importance: 4, visibility: 1, vibration: true
+    }).catch(()=>{});
+  }
+  return checkChannelReady;
+}
+
 function ensureChannel(){
   if(!isNative) return Promise.resolve();
   if(!channelReady){
@@ -70,6 +88,26 @@ export const native = {
         }] });
       }
     }catch(e){ try{ console.warn("Notification scheduling failed", e); }catch(_){} }
+  },
+
+  // "Still feeding?" check: one notification per child slot (ids 4001, 4002, ...), or none when at is null.
+  async syncFeedCheck(at, title, body, slot = 0){
+    if(!isNative) return;
+    const id = CHECK_ID + slot;
+    const key = at ? at + "|" + title + "|" + body : null;
+    if(key === checkKey[slot]) return;
+    checkKey[slot] = key;
+    try{
+      await ensureCheckChannel();
+      await LocalNotifications.cancel({ notifications: [{ id }] });
+      if(at && at > Date.now() + 5000){
+        if((await LocalNotifications.checkPermissions()).display !== "granted") return;
+        await LocalNotifications.schedule({ notifications: [{
+          id, title, body, channelId: CHECK_CHANNEL,
+          schedule: { at: new Date(at), allowWhileIdle: true }
+        }] });
+      }
+    }catch(e){ checkKey[slot] = undefined; try{ console.warn("Feed check scheduling failed", e); }catch(_){} }
   },
 
   // Mum's medication reminders: replace all scheduled ones (ids 5000-5999) with `list`

@@ -2,6 +2,7 @@
 // It talks to a "backend" (Firebase in main.js, a local fake in test/) so it can be tested without a server.
 import { startChart } from "./app.js";
 import { startMum } from "./mum.js";
+import { feedCheckAt, usualText, deviceId, feedCheckOn } from "./feedcheck.js";
 
 const $ = s => document.querySelector(s);
 const show = (id) => ["#gLoading","#gConfig","#gAuth","#gFamily"].forEach(s => { $(s).hidden = s !== id; });
@@ -124,8 +125,10 @@ export function runShell(backend, native){
     Object.keys(kidWatch).forEach(id => { if(!ids.has(id)){ try{ kidWatch[id].unsub(); }catch(e){} delete kidWatch[id]; } });
     kids.forEach(k => {
       if(kidWatch[k.id]) return;
-      const w = kidWatch[k.id] = { feed: null, unsub: null };
-      w.unsub = backend.makeStore(fid, k.id).subscribeRecent(40, list => {
+      const w = kidWatch[k.id] = { feed: null, list: [], unsub: null };
+      // enough recent entries to work out the usual feed length for the "still feeding?" check
+      w.unsub = backend.makeStore(fid, k.id).subscribeRecent(150, list => {
+        w.list = list;
         w.feed = list.filter(e => e.kind === "feed").sort((a, b) => b.t - a.t)[0] || null;
         syncAlerts(); paintKids();
       }, () => {});
@@ -150,6 +153,27 @@ export function runShell(backend, native){
         f ? "Last feed started at " + when + ". Check the chart if someone else has fed " + name + " since." : "", i);
     });
     for(let i = kids.length; i < 8; i++) native.syncAlert(null, "", "", i);
+    syncFeedChecks();
+  }
+  // "Still feeding?" phone notification, only on the phone that started the feed's timer.
+  function syncFeedChecks(){
+    if(!native.syncFeedCheck) return;
+    const me = deviceId(), on = feedCheckOn();
+    kids.forEach((k, i) => {
+      const w = kidWatch[k.id] || {}, f = w.feed;
+      const name = (k.name || "Baby").trim() || "Baby";
+      let at = null, body = "";
+      if(on && f && f.open && f.dev && f.dev === me){
+        const c = feedCheckAt(f, w.list || []);
+        if(c && c.at > Date.now() + 5000){
+          at = c.at;
+          const u = usualText(c.usual, f.side, name);
+          body = (u ? u.charAt(0).toUpperCase() + u.slice(1) + ". " : "") + "Open the app to finish the timer if the feed is over.";
+        }
+      }
+      native.syncFeedCheck(at, "Still feeding " + name + "?", body, i);
+    });
+    for(let i = kids.length; i < 8; i++) native.syncFeedCheck(null, "", "", i);
   }
   setInterval(() => { paintKids(); syncAlerts(); }, 20000);
 

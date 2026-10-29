@@ -79,6 +79,33 @@
 
   <section id="live" aria-live="polite"></section>
 
+  <section class="feedcheck" id="feedCheck" hidden role="alert">
+    <div class="wa-txt"><div class="wa-h" id="fcHead">Still feeding?</div><div class="wa-s" id="fcSub"></div></div>
+    <div class="wa-acts" id="fcAsk">
+      <button class="btn" id="fcYes">Still feeding</button>
+      <button class="btn ghost" id="fcNow">Finished now</button>
+      <button class="btn ghost" id="fcEarlier">Finished earlier</button>
+    </div>
+    <div class="fc-finish" id="fcFinish" hidden>
+      <div class="lastrow" id="fcSideRow" hidden>
+        <span class="label">Last side used</span>
+        <div class="choices two" id="fcSide">
+          <button class="choice" data-last="L" style="--c:var(--left)" aria-pressed="false"><span class="dot"></span>Left</button>
+          <button class="choice" data-last="R" style="--c:var(--right)" aria-pressed="false"><span class="dot"></span>Right</button>
+        </div>
+      </div>
+      <div class="fields">
+        <label class="field" id="fcMinsField"><span class="label">Fed for (minutes)</span><input id="fcMins" type="number" inputmode="numeric" min="1" max="240"></label>
+        <label class="field" id="fcMlField" hidden><span class="label">Amount (ml)</span><input id="fcMl" type="number" inputmode="numeric" min="0" step="5" placeholder="e.g. 90"></label>
+      </div>
+      <p class="err" id="fcErr" hidden></p>
+      <div class="wa-acts">
+        <button class="btn" id="fcSave">Save feed</button>
+        <button class="btn ghost" id="fcBack">Back</button>
+      </div>
+    </div>
+  </section>
+
   <section class="wakealert" id="wakeAlert" hidden role="alert">
     <div class="wa-txt"><div class="wa-h" id="waHead">Time for a feed</div><div class="wa-s" id="waSub"></div></div>
     <div class="wa-acts">
@@ -96,6 +123,7 @@
 
   <section class="remind" aria-label="Feed reminder">
     <label class="sw"><input type="checkbox" id="remOn" checked><span>Wake-to-feed alert, 3 hours from the start of a feed</span></label>
+    <label class="sw"><input type="checkbox" id="fcOn" checked><span>Ask "still feeding?" when a feed runs longer than usual</span></label>
     <label class="sw"><input type="checkbox" id="keepAwake"><span>Keep screen on</span></label>
     <p class="note" id="remNote">Alerts show and chime while this chart is open on this device.</p>
   </section>

@@ -3,6 +3,7 @@
 // ctx.store  : data store (see main.js for the Firebase version, test/local-store.js for tests)
 // ctx.native : phone features (notifications); optional
 // ctx.family : {name, birth: "YYYY-MM-DD"}
+import { feedCheckAt, usualText, deviceId, feedCheckOn, ASK_AGAIN } from "./feedcheck.js";
 export function startChart(ctx){
 
 const $ = s => document.querySelector(s);
@@ -366,6 +367,7 @@ function render(){
   paintName();
   renderLive(); renderStatus(); renderDay(); renderHist(); renderCal(); renderHealth();
   if(typeof checkWake === "function") checkWake();
+  if(typeof checkFeed === "function") checkFeed();
 }
 
 /* ---------- toast ---------- */
@@ -399,25 +401,28 @@ function feedExtras(){
 }
 function resetFeedForm(){ $("#feedNote").value = ""; $("#feedAt").value = ""; $("#feedMins").value = ""; $("#feedMl").value = ""; setLast(null); sideTouched = false; }
 
-async function finishFeed(ended){
+// Finish the running feed. endAt: when it actually ended (default now); mlIn: bottle amount.
+async function finishFeed(ended, endAt, mlIn){
   const f = openFeed(); if(!f) return;
-  const patch = {open:false, end:Date.now()};
+  const end = endAt ? Math.min(Date.now(), Math.max(f.t, endAt)) : Date.now();
+  const patch = {open:false, end};
   if(f.side==="B"){
     const s = ended || lastSide;
     if(!s){ toast("Tap Ended Left or Ended Right at the top to finish."); return; }
     patch.last = s;
   }
   { const n = noteOf("#feedNote"); if(n) patch.note = f.note ? f.note + " · " + n : n; }
-  if(f.side==="BO"){ const ml = parseInt(($("#liveMl") && $("#liveMl").value) || $("#feedMl").value, 10); if(ml > 0) patch.ml = ml; }
+  if(f.side==="BO"){ const ml = mlIn || parseInt(($("#liveMl") && $("#liveMl").value) || $("#feedMl").value, 10); if(ml > 0) patch.ml = ml; }
   await updateEntry(f.id, patch);
-  toast("Feed saved · " + dur(Date.now()-f.t) + (patch.ml ? " · " + patch.ml + " ml" : "") + (patch.last ? " · ended " + SIDE[patch.last].toLowerCase() : ""));
+  toast("Feed saved · " + dur(end-f.t) + (patch.ml ? " · " + patch.ml + " ml" : "") + (patch.last ? " · ended " + SIDE[patch.last].toLowerCase() : ""));
   resetFeedForm(); syncDefaultSide();
 }
 $("#feedStart").addEventListener("click", async ()=>{
   if(openFeed()){ await finishFeed(); return; }
   if(!side){ toast("Choose Left, Right, Both or Bottle first."); return; }
   const extras = feedExtras(); if(side==="B") delete extras.last;
-  await addEntry(withNote(Object.assign({kind:"feed", side, t:Date.now(), end:null, open:true}, extras), "#feedNote"));
+  // dev: this phone, so only the phone that started the timer gets the "still feeding?" notification
+  await addEntry(withNote(Object.assign({kind:"feed", side, t:Date.now(), end:null, open:true, dev:deviceId()}, extras), "#feedNote"));
   $("#feedMl").value = ""; $("#feedNote").value = "";
 });
 $("#feedSave").addEventListener("click", async ()=>{
@@ -764,6 +769,72 @@ $("#waSnooze").addEventListener("click", ()=>{ lsSet("harper-rem-snooze" + KEY_S
 $("#waDismiss").addEventListener("click", ()=>{ const f = lastFeedStart(); if(f) lsSet("harper-rem-dismiss" + KEY_SFX, f.id); checkWake(); });
 $("#remOn").addEventListener("change", e=>{ remOn = e.target.checked; lsSet("harper-rem-on", remOn ? "1" : "0"); checkWake(); renderLive(); });
 
+/* ---------- "Still feeding?" check ---------- */
+// Once a running feed goes past the usual length for that kind of feed (see feedcheck.js),
+// ask whether it's still going, so a forgotten timer doesn't log a 2-hour feed.
+let fcStep = null;            // null: asking · "now" / "earlier": the finish form is open
+let fcFor = null, fcLast = null, fcQuiet = null;
+$("#fcOn").checked = feedCheckOn();
+function fcSetLast(s){ fcLast = s; document.querySelectorAll("#fcSide .choice").forEach(b=>b.setAttribute("aria-pressed", b.dataset.last===s)); }
+function checkFeed(){
+  const box = $("#feedCheck"), f = openFeed();
+  const c = f && feedCheckOn() ? feedCheckAt(f, entries) : null;
+  const quiet = fcQuiet && f && fcQuiet.id === f.id && Date.now() < fcQuiet.until;
+  if(!c || Date.now() < c.at || quiet){ box.hidden = true; fcStep = null; fcFor = null; return; }
+  if(fcFor !== f.id){ fcFor = f.id; fcStep = null; fcSetLast(null); try{ if(navigator.vibrate) navigator.vibrate(200); }catch(e){} }
+  box.style.setProperty("--c", SIDECOL[f.side]);
+  const ran = dur(Date.now() - f.t), usual = usualText(c.usual, f.side, NM());
+  const what = f.side==="BO" ? "Bottle feed running for " + ran : f.side==="B" ? "Feeding on both sides for " + ran : "Feeding on the " + SIDE[f.side].toLowerCase() + " for " + ran;
+  if(!fcStep){
+    $("#fcHead").textContent = "Still feeding?";
+    $("#fcSub").textContent = what + "." + (usual ? " " + usual + "." : "") + " Started at " + fmtTime(f.t) + ".";
+  } else if(fcStep==="now"){
+    $("#fcHead").textContent = "Finish the feed";
+    $("#fcSub").textContent = "Which side did " + NM() + " finish on?";
+  } else {
+    $("#fcHead").textContent = "How long did " + NM() + " feed?";
+    $("#fcSub").textContent = "Minutes from the start at " + fmtTime(f.t) + "." + (usual ? " " + usual + "." : "");
+  }
+  $("#fcAsk").hidden = !!fcStep; $("#fcFinish").hidden = !fcStep;
+  $("#fcSideRow").hidden = f.side !== "B"; $("#fcMinsField").hidden = fcStep !== "earlier"; $("#fcMlField").hidden = f.side !== "BO";
+  box.hidden = false;
+}
+function fcOpen(step){
+  const f = openFeed(); if(!f) return;
+  fcStep = step; $("#fcErr").hidden = true; $("#fcMl").value = ($("#liveMl") && $("#liveMl").value) || "";
+  if(step==="earlier"){
+    const c = feedCheckAt(f, entries), ranMin = Math.max(1, Math.floor((Date.now() - f.t)/MIN));
+    $("#fcMins").value = c && c.usual ? Math.min(ranMin, Math.max(1, Math.round(c.usual.ms/MIN))) : "";
+  }
+  checkFeed();
+}
+$("#fcYes").addEventListener("click", ()=>{
+  const f = openFeed(); if(!f) return;
+  fcQuiet = {id:f.id, until:Date.now() + ASK_AGAIN};
+  updateEntry(f.id, {checkAt: Date.now() + ASK_AGAIN});      // every phone waits, and the phone alert moves too
+  checkFeed(); toast("OK. We'll check again in 10 minutes.");
+});
+$("#fcNow").addEventListener("click", ()=>{ const f = openFeed(); if(!f) return; if(f.side==="B") fcOpen("now"); else finishFeed(); });
+$("#fcEarlier").addEventListener("click", ()=>fcOpen("earlier"));
+$("#fcBack").addEventListener("click", ()=>{ fcStep = null; checkFeed(); });
+document.querySelectorAll("#fcSide .choice").forEach(b=>b.addEventListener("click", ()=>fcSetLast(b.dataset.last)));
+$("#fcSave").addEventListener("click", async ()=>{
+  const f = openFeed(); if(!f) return;
+  const err = m => { $("#fcErr").textContent = m; $("#fcErr").hidden = false; };
+  if(f.side==="B" && !fcLast) return err("Choose the side " + NM() + " finished on.");
+  let endAt = null;
+  if(fcStep==="earlier"){
+    const m = parseInt($("#fcMins").value, 10), ranMin = Math.ceil((Date.now() - f.t)/MIN);
+    if(!(m > 0)) return err("Enter how many minutes " + NM() + " fed for.");
+    if(m > ranMin) return err("That's longer than the timer has been running (" + ranMin + " minutes). Use Finished now instead.");
+    endAt = f.t + m*MIN;
+  }
+  const ml = parseInt($("#fcMl").value, 10);
+  await finishFeed(fcLast, endAt, ml > 0 ? ml : null);
+  fcStep = null; checkFeed();
+});
+$("#fcOn").addEventListener("change", e=>{ lsSet("bc-feedcheck-on", e.target.checked ? "1" : "0"); checkFeed(); });
+
 let wakeLock = null;
 async function setKeepAwake(on){
   try{
@@ -777,7 +848,7 @@ async function setKeepAwake(on){
   }
 }
 $("#keepAwake").addEventListener("change", e=>setKeepAwake(e.target.checked));
-document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "visible"){ checkWake(); if($("#keepAwake").checked && !wakeLock) setKeepAwake(true); } });
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "visible"){ checkWake(); checkFeed(); if($("#keepAwake").checked && !wakeLock) setKeepAwake(true); } });
 
 /* ---------- banners + delete ---------- */
 $("#live").addEventListener("click", e=>{
@@ -801,7 +872,7 @@ document.querySelectorAll("#filters .chip").forEach(c=>c.addEventListener("click
 paintFilters();
 render(); syncDefaultSide();
 setInterval(tickLive, 1000);
-setInterval(checkWake, 15000);
+setInterval(()=>{ checkWake(); checkFeed(); }, 15000);
 setInterval(()=>{ renderStatus(); renderDay(); renderHealth(); }, 30000);
 
 let unsubRecent = null;
@@ -828,7 +899,7 @@ return {
     KEY_SFX = next.key ? "-" + next.key : "";
     FAM = Object.assign({}, FAM, next.family || {});
     entries = []; monthEntries = [];
-    armed = null; sideTouched = false; alertFor = null;
+    armed = null; sideTouched = false; alertFor = null; fcFor = null; fcStep = null; fcQuiet = null;
     calSel = startOfDay(Date.now());
     calMonth = (()=>{ const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d.getTime(); })();
     ["#feedNote","#sleepNote","#nappyNote","#feedAt","#feedMins","#feedMl","#sleepFrom","#sleepTo","#nappyAt"].forEach(sel=>{ const el = $(sel); if(el) el.value = ""; });

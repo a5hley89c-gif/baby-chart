@@ -142,6 +142,7 @@ For each new version, the build number goes up automatically. Upload the new `.a
 ## Good to know
 
 - **Android notifications:** a notification is scheduled on the phone for 3 hours after the start of the last feed it knows about. If your partner logs a feed on their phone while yours is closed, open the app so it can move the reminder.
+- **"Still feeding?" check:** when a running feed goes past the baby's usual length for that kind of feed (the average of the last 10 timed left, right, both-sides or bottle feeds, or 45 minutes until there's enough history), the chart asks whether the feed is still going. Answer **Still feeding** to be asked again in 10 minutes, or finish it now or earlier. In the phone apps, the phone that started the timer also gets a notification. It can be switched off on the chart screen.
 - **iPhone alerts:** the web version can't send notifications while closed. Its alert shows and chimes while the app is open on screen.
 - **Export:** the web version has an **Export** button under Settings and family that saves a backup of the whole log.
 - **Medical content:** the guidance in the app is general information for a healthy term baby, not medical advice. Always follow your midwife, child health nurse or GP.
@@ -156,7 +157,8 @@ src/styles.css      styles (light and dark)
 src/app.js          the chart: logging, history, calendar, alerts, editing
 src/shell.js        sign-in, family set-up, settings, import/export
 src/main.js         Firebase backend (Auth + Firestore with offline cache)
-src/native.js       Android-only features (local notifications, back button)
+src/feedcheck.js    "still feeding?" timing (shared by the chart and the phone notification)
+src/native.js       phone-app features (local notifications, back button)
 src/config.js       your Firebase web settings
 firestore.rules     database security rules
 build.mjs           bundles src/ into www/ (esbuild)
